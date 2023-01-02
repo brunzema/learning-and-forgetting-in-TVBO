@@ -1,0 +1,61 @@
+
+\newcommand*\submitdate{6. Dezember 2021}
+
+
+%% ABBREVIATIONS & MACROS
+
+\newcommand{\swname}[1]{\texttt{#1}}
+
+
+%% GENERAL MATH STUFF
+
+\newcommand*{\diff}{\mathrm{d}}
+\newcommand*{\pdiff}[0]{\partial}
+\newcommand*{\dd}[2][]{\frac{\pdiff #1}{\pdiff #2}}
+\newcommand{\argmin}{\arg\min} 
+\newcommand{\argmax}{\arg\max} 
+\newcommand{\MatBold}[1]{\mathrm{\mathbf{#1}}}
+\newcommand{\R}{\mathrm{I\!R}}
+\DeclareMathOperator{\EX}{\mathbb{E}}
+\renewcommand{\algorithmicrequire}{\textbf{Initialize:}} 
+\renewcommand{\algorithmicensure}{\textbf{Output:}} 
+
+%% CHAPTER MATERIALS AND METHODS
+
+\newcommand*{\vel}{v}
+\newcommand*{\loc}{x}
+\newcommand*{\acc}{a}
+\newcommand*{\mass}{m}
+\newcommand*{\force}{f}
+
+% convenience commands that make writing faster and also allow easily changing formatting later during the writing process
+\newcommand*{\matlab}{\swname{Matlab}}
+\newcommand*{\python}{\swname{Python}}
+\newcommand*{\pgfplots}{\swname{pgfplots}}
+\newcommand*{\gnuplot}{\swname{gnuplot}}
+
+%% ALGORITHM STUFF
+
+\newcommand{\algrule}[1][.2pt]{\par\vskip.5\baselineskip\hrule height #1\par\vskip.5\baselineskip}
+\algnewcommand{\LineComment}[1]{\State \(\#\) \textit{#1}}
+
+
+%% CHAPTER CONCEPT
+
+\newcommand*{\Bfun}{B}
+\newcommand*{\Afun}{A}
+
+
+%% COLORS
+\definecolor{bordeaux100}{rgb}{0.631372549019608,0.0627450980392157,0.2078431372549}
+\definecolor{blau100}{rgb}{0,0.329411764705882,0.623529411764706}
+\definecolor{blau25}{rgb}{0.7803921568627451, 0.8666666666666667, 0.9490196078431372}
+\definecolor{orange100}{rgb}{0.9647058823529412, 0.6588235294117647, 0}
+
+
+
+%%%%% Emacs-related stuff
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "main"
+%%% End: 

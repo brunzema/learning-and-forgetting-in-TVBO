@@ -1,0 +1,27 @@
+\subsection*{Abstract}
+
+% The goal of \gls{tvbo} is to find and track an optimum in a dynamic optimization problem with an unknown objective function. At each time step, a decision-maker needs to decide where to evaluate the objective function next, either exploiting known good queries or exploring uncertain outcomes and learning the temporal change. It is not reasonable to apply \gls{tvbo} to a setting with arbitrary changes as tracking the optimum becomes infeasible. Therefore, we need to place regularity assumptions on them and, ideally, on the properties of the objective functions. In particular, we are interested in controller tuning problems with convex objective functions. Instead of using heuristics for the decision-maker, we embed the assumptions into a spatio-temporal \gls{gp} model.
+
+The goal of \gls{tvbo} is to find and track an optimum of a dynamic optimization problem with an unknown objective function. At each time step, a decision-maker needs to decide where to evaluate the objective function next, either exploiting known good queries or exploring uncertain outcomes and capturing the temporal change. However, to learn the temporal changes, we need to place regularity assumptions on them and, ideally, on the properties of the objective functions. Specifically, we are interested in controller tuning problems with convex objective functions. Without any assumptions tracking the optimum becomes infeasible. Instead of using heuristics for the decision-maker, we embed the assumptions directly into a spatio-temporal \gls{gp} model.
+
+We propose modeling the temporal dimension as a Wiener process, retaining past information in the form of its expected value. A Wiener process better captures the expected changes in the objective function of a changing dynamical system and is robust to misspecifications of the prior distribution. To exploit the prior knowledge of a convex objective function, we impose inequality constraints on the second derivative of the GP model. This allows the decision-maker to extrapolate globally using local information and thus avoid undesirable global exploration without additional heuristics.
+
+We demonstrate in extensive synthetic experiments and a controller tuning problem the advantages of including these assumptions into \gls{tvbo}, as they result in significant performance and robustness benefits compared to the state-of-the-art \gls{tvbo} approach. 
+ 
+
+
+%% OLD ABSTRACT
+% The goal of \gls{tvbo} is to find and track an optimum in a dynamic optimization problem with an unknown objective function. Only noisy function evaluations are available, which are used to model the objective function with a spatio-temporal \gls{gp}. Based on this model, at each time step, an active sampling algorithm needs to decide where to evaluate the objective function next, either exploiting known good queries or exploring uncertain outcomes and learning the temporal change. 
+
+% We first consider how to deal with data collected in the past by categorizing modeling approaches for the temporal dimension in \gls{tvbo} into \gls{b2p} forgetting and \gls{ui} forgetting, both expressing increased model uncertainty over time. The current state-of-art modeling approach uses \gls{b2p} forgetting losing information from the past by propagating towards a prior mean. In contrast, we propose a novel approach for \gls{tvbo} using \gls{ui} forgetting based on a Wiener process some retaining relevant information from the past. 
+
+% Next, we propose a novel algorithm incorporating convexity assumptions derived from domain knowledge into our probabilistic model using inequality constraints on the \gls{gp} posterior. These constraints help the decision-maker approximate the global structure of the objective function from local queries and discourage undesirable explorations. To the best of our knowledge, this is the first algorithm to include prior knowledge in \gls{tvbo}.
+
+% We demonstrate that combining both proposed methods has significant performance and robustness benefits in extensive within-model comparisons and synthetic benchmarks inspired by related work. To conclude, we also demonstrate the advantages of our proposed methods over the current state-of-the-art method on a controller tuning problem of an inverted pendulum with time-varying system dynamics.
+
+\glsresetall
+%%%%% Emacs-related stuff
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "../../main"
+%%% End: 

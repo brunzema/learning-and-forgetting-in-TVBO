@@ -1,0 +1,104 @@
+\section{Bayesian Optimization}
+\label{sec:bo}
+
+Optimizing a black-box function $f\colon \mathcal{X} \mapsto \R$ as 
+\begin{equation}
+    \mathbf{x}^* = \argmin_{\mathbf{x} \in \mathcal{X}} f(\mathbf{x})
+    \label{eq:bo_setup}
+\end{equation}
+is complex, especially if only noisy observations of the form $y = f(\mathbf{x}) + w$ with ${w \sim \mathcal{N}(0, \sigma_n^2)}$ are available to the optimization algorithm. This is also referred to as bandit feedback. If the function evaluations are cheap, gradients of $f$ can be approximated, and stochastic optimization methods can be applied to find local optima. 
+However, if the function evaluations are expensive, such an approximation of the gradient is not practical. Furthermore, in some applications, it is desirable to find the global optimum. For this setting, \gls{bo} has been developed as a global optimization method in the case of expensive function evaluation and has been applied, e.g., for optimizing the hyperparameter in deep learning and other machine learning algorithms. 
+
+\begin{figure}[t]
+    \centering
+    \input{thesis/figures/pgf_figures/bo.pgf}
+    \caption[Visualization of \gls{bo} iterations.]{Visualization of \gls{bo} iterations with the objective function (black line), previous queries (black points) and the chosen query (red points). The query is chosen by minimizing the acquisition function $\alpha(\mathbf{x}|\mathcal{D})$ (orange) based on the current model (blue) within the feasible set $\mathbf{x} \in \mathcal{X} = [-2, 2]$. This is indicated by the red dashed line.}
+    \label{fig:bo_example}
+\end{figure}
+
+As the objective function is unknown, \gls{bo} requires a surrogate model which captures the prior believe of the objective function and can be updated from the observations. This model can be a parametric model such as a linear model, however the most common choice in current \gls{bo} algorithms is the use of a nonparametric model in form of a \gls{gp} as $f(\mathbf{x}) \sim \mathcal{GP}(m, k)$ as discussed in the previous \Cref{sec:gaussian_process}. 
+
+\begin{algorithm}[b]
+\centering
+\caption{\gls{bo} \cite{Shahriari_2016}}
+\begin{algorithmic}[1]
+\Require prior $f \sim \mathcal{GP}(m(\mathbf{x}), k(\mathbf{x},\mathbf{x}'))$; feasible set $\mathcal{X}\in \R^D$; data set ${\mathcal{D}_{N} = \{y_j, \mathbf{x}_j\}_{j=0}^{N}}$ 
+\For{$k = N, 2, \dots, K$}
+    \State Train \gls{gp} model with $\mathcal{D}_k$
+    \State choose next query $\mathbf{x}_{k+1} = \underset{\mathbf{x}\in \mathcal{X}}{\argmin} \,\alpha(\mathbf{x}|\mathcal{D})$
+    \State query objective function $y_{k+1} = f(\mathbf{x}_{k+1}) + w$
+    \State update data set $\mathcal{D}_{k+1} = \mathcal{D}_{k} \cup \{y_{k+1}, \mathbf{x}_{k+1}\}$
+\EndFor
+\end{algorithmic}
+\label{algo:bo}
+\end{algorithm}
+
+Besides the model, \gls{bo} requires the definition of an acquisition function in the form of $\alpha(\mathbf{x}|\mathcal{D}) \colon \mathcal{X} \mapsto \R$ which maps a query $\mathbf{x}$ to a corresponding value defining the utility of the query. Optimizing the acquisition function and updating the model is performed sequentially as shown in Algorithm \ref{algo:bo} up to a terminal condition or after exhausting a predefined observation budget. A few \gls{bo} steps are also visualized on an example in Figure \ref{fig:bo_example}.
+
+
+The sampling efficiency of \gls{bo} highly depends on choosing a suitable acquisition function for the problem at hand. Different acquisition functions have been proposed such as \gls{pi}\cite{Kushner_1964}, \gls{ei}\cite{} and \gls{ucb}\cite{Auer_2002} (or in the case of minimizing an objective function \gls{lcb}), each with different characteristics regarding exploration and exploitation. Every acquisition function has to balance the exploration-exploitation trade-off in exploring the objective function by querying at locations with high variance or exploiting the model's mean. The mentioned acquisition functions are myopic, as they try to optimize in a one-step-look-ahead fashion considering only the model's current state as opposed to planing a sequence of queries.
+
+
+\subsubsection{Regret}
+
+To evaluate the performance of different \gls{bo} algorithms a metric called regret is used. It defines the cost of choosing a query at iteration $k$ which deviates from the optimum. The objective of a \gls{bo} algorithm is then to minimize the cumulative regret.
+\begin{definition}[Cumulative regret]
+Let $\mathbf{x}^*$ be the optimizer to the function $f(\mathbf{x})$ and let $\mathbf{x}_k$ be the queried point by the algorithm at iteration $k$. The cumulative regret after $K$ iterations is then given by
+\begin{equation}
+    R_K \coloneqq \sum_{k=1}^K (f(\mathbf{x}_k) - f(\mathbf{x}^*)).
+\end{equation}
+\end{definition}
+A desirable characteristic of a \gls{bo} algorithm is to achieve sub-linear regret (also called \emph{no-regret}) as
+\begin{equation}
+    \lim_{T \to \infty} \frac{R_K}{T} = 0.
+\end{equation}
+It defines that for large $T$ the cumulative regret converges to a constant implying the convergence of the algorithm to the true optimum $\mathbf{x}^*$.
+Such a no-regret algorithm is \gls{gp}-\gls{lcb} as defined in \cite{Srinivas_2010} with the acquisition function
+\begin{equation}
+    \mathbf{x}_{k+1} = \argmin_{\mathbf{x} \in \mathcal{X}} \alpha_{\gls{gp}-\gls{lcb}}(\mathbf{x}|\mathcal{D}) = \argmin_{\mathbf{x} \in \mathcal{X}} \mu_k(\mathbf{x}) - \sqrt{\beta_{k+1}}\, \sigma_k(\mathbf{x})
+    \label{eq:lcb}
+\end{equation}
+with $\mu_k$ and $\sigma_k$ describing the posterior mean and standard deviation of the \gls{gp} model from the previous iteration, respectively. Hence, $\beta_{k+1}$ defines the mentioned exploration-exploitation trade-off at the current iteration for \gls{gp}-\gls{lcb}. Setting $\beta_{k+1}$ according to \textcite[Theorem 1]{Srinivas_2010} results in proven sub-linear regret. For a deeper introduction to \gls{bo} it is referred to \textcite{Shahriari_2016}.
+
+\subsubsection{Time-Varying Bayesian Optimization}
+\label{sec:tvbo}
+
+The following notation of \gls{tvbo} is based on the notation in \cite{Wang_2021}. In \gls{tvbo} the unknown objective function is time-varying as $f\colon \mathcal{X} \times \mathcal{T} \mapsto \R$ where $\mathcal{T}$ represents the time domain as an increasing sequence $\mathcal{T} = \{1,2, \dots, T\}$ with $T$ as the time horizon. To include the time dependency into the \gls{gp} model, the current state-of-the-art is to use a product composite kernel of $k_{S}\colon \mathcal{X} \times \mathcal{X} \mapsto \R$ and $k_{T}\colon \mathcal{T} \times \mathcal{T} \mapsto \R$ resulting in the \emph{spatio-temporal kernel}
+\begin{equation}
+    k\colon \mathcal{X} \times \mathcal{T} \mapsto \R, \quad k(\{\mathbf{x},t\},\{\mathbf{x}',t'\}) = k_{S}(\mathbf{x}, \mathbf{x}') \otimes k_{T}(t, t')
+    \label{eq:spatio_temporal_kernel}
+\end{equation}
+with $\otimes$ as the Hadamard product.
+The kernel $k_S$ embeds the spatial correlations within $\mathcal{X}$ and implies the Bayesian regularity assumptions on $f_t(\mathbf{x})$ as being a sample from a \gls{gp} prior with kernel $k_S$ at each time step. The spatial kernel $k_S$ is often chosen to be a kernel from the Matérn class such as the \gls{se} kernel. The kernel $k_T$ characterizes the temporal correlations and defines how to treat data from the past. As defined in \eqref{eq:compsite_kernel_diff} the resulting kernel $k(\{\mathbf{x},t\},\{\mathbf{x}',t'\})$ is a valid kernel, as long as $k_S$ and $k_T$ are valid kernels in $\mathcal{X}$ and $\mathcal{T}$, respectively. 
+The base algorithm for \gls{tvbo} is displayed in Algorithm \ref{algo:tvbo}.
+
+\begin{algorithm}[h]
+\centering
+\caption{Base \gls{tvbo}}
+\begin{algorithmic}[1]
+\Require prior $\mathcal{GP}(m(\mathbf{x}), k_S(\mathbf{x},\mathbf{x}') \otimes k_T(t, t'))$ and hyperparameter; feasible set ${\mathcal{X}\in \R^D}$; data set $\mathcal{D}_{N} = \{y_j, \mathbf{x}_j, t_j\}_{j=0}^{N}$ 
+\State $t_0=N$
+\For{$t = t_0, t_0+1, t_0+2, \dots, T$}
+    \State Train \gls{gp} model with $\mathcal{D}_t$
+    \State choose next query $\mathbf{x}_{t+1} = \underset{\mathbf{x}\in \mathcal{X}}{\argmin} \,\alpha(\mathbf{x}, t+1|\mathcal{D})$
+    \State query objective function $y_{t+1} = f_{t+1}(\mathbf{x}_{t+1}) + w$
+    \State update data set $\mathcal{D}_{t+1} = \mathcal{D}_{t} \cup \{y_{t+1}, \mathbf{x}_{t+1}, t+1\}$
+\EndFor
+\end{algorithmic}
+\label{algo:tvbo}
+\end{algorithm}
+
+In contrast to standard \gls{bo}, in \gls{tvbo} the acquisition function is constrained to only choose a query for the next time step $t+1$, given the \gls{gp} model of the current time step, even though the \gls{gp} model is defined over the whole domain $\mathcal{X}\times\mathcal{T}$ through the kernel $k$. Moreover, in this time-varying environment, there is no longer a single optimizer for the objective function, but an optimizer for each time step, which may vary over time. Therefore, a different notion of regret has to be defined, to capture the performance of a \gls{tvbo} algorithm. For this purpose, the dynamic cumulative regret metric is introduced (Definition \ref{def:dynamic_regret}).
+\begin{definition}[Dynamic cumulative regret]
+Let $\mathbf{x}_t^*$ be the optimizer to the time-varying function $f_t(\mathbf{x})$ as $\mathbf{x}_t^* = \argmin_{\mathbf{x} \in \mathcal{X}} f_t(\mathbf{x})$ at time step $t$ and let $\mathbf{x}_t$ be the queried point by the algorithm at time step $t$. Than the dynamic cumulative regret after $T$ time steps is
+\begin{equation}
+    R_T \coloneqq \sum_{t=1}^T (f_t(\mathbf{x}_t) - f_t(\mathbf{x}_t^*)).
+\end{equation}
+\label{def:dynamic_regret}
+\end{definition}
+\vspace{-0.5cm}
+In the following, the dynamic cumulative regret will only be referred to as regret for convenience. Achieving sub-linear regret in a general time-varying setting is not possible without stating assumptions on the amount of change over the time horizon $T$ \cite{Besbes_2015}. The intuition behind is that it is not possible to track the optimum with arbitrary precision if the objective function changes significantly at each time step \cite{Bogunovic_2016}. However, when $f_t(\mathbf{x})$ is a function in an \gls{rkhs} $\mathcal{H}_K$ with a bounded norm and the amount of change is limited and known a-priori within a variation budget $P_T$ \cite{Besbes_2014} as
+\begin{equation}
+    \sum_{t=1}^{T-1} ||f_t(\mathbf{x}) - f_{t+1}(\mathbf{x})||_{\mathcal{H}_K} \leq P_T,
+\end{equation}
+\gls{tvbo} algorithms have been developed that have been proven to achieve sub-linear regret \cite{Zhou_2021}.

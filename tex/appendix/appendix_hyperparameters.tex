@@ -1,0 +1,186 @@
+\chapter{Hyperparameters}
+
+\subsubsection{Within-Model Comparison (1D)}
+
+\bgroup
+\def\arraystretch{1}
+\begin{table}[h]
+    \small
+    \centering
+    \begin{tabular}{c||c}
+        \textbf{Hyperparameter} & \textbf{Value} \\\hline\hline
+        \gls{ui} forgetting factor $\hat{\sigma}_w^2$ & $0.03$\\
+        \gls{b2p} forgetting factor $\epsilon$ & $0.03$\\
+        Feasible set $\mathcal{X}$ & $[-5,9]$\\
+        Number of \glspl{vop} per dimension $N_{v/D}$ & $10$\\
+        Local approximation factor $\delta$ & $1.5$\\
+        Bounding functions $a(\mathbf{X}_v),b(\mathbf{X}_v)$ & $a(\mathbf{X}_v)=0,b(\mathbf{X}_v)=1$\\
+        Output variance $\sigma_k^2$ & $1$\\
+        Length scale $\boldsymbol\Lambda_{11}$ & $3$\\
+        Noise $\sigma_n^2$ & $0.02$ \\
+        Number of bins per dimensions & $20$\\
+        Sliding window size $W$ & $30$
+    \end{tabular}
+    \caption{Hyperparameters of the one-dimensional within-model comparison.}
+    \label{tab:params_WMC_1D}
+\end{table}
+\egroup
+
+\subsubsection{Within-Model Comparison (2D)}
+
+\bgroup
+\def\arraystretch{1}
+\begin{table}[h]
+    \small
+    \centering
+    \begin{tabular}{c||c}
+        \textbf{Hyperparameter} & \textbf{Value} \\\hline\hline
+        \gls{ui} forgetting factor $\hat{\sigma}_w^2$ & $0.03$\\
+        \gls{b2p} forgetting factor $\epsilon$ & $0.03$\\
+        Feasible set $\mathcal{X}$ & $[-7,7]^2$\\
+        Number of \glspl{vop} per dimension $N_{v/D}$ & $5$\\
+        Local approximation factor $\delta$ & $1.5$\\
+        Bounding functions $a(\mathbf{X}_v),b(\mathbf{X}_v)$ & $a(\mathbf{X}_v)=0,b(\mathbf{X}_v)=1$\\
+        Output variance $\sigma_k^2$ & $1$\\
+        Length scales $\boldsymbol\Lambda_{11}, \boldsymbol\Lambda_{22}$ & $3$\\
+        Noise $\sigma_n^2$ & $0.02$ \\
+        Number of bins per dimensions & $20$ \\
+        Sliding window size $W$ & $80$
+    \end{tabular}
+    \caption{Hyperparameters of the two-dimensional within-model comparison.}
+    \label{tab:params_WMC_2D}
+\end{table}
+\egroup
+
+\subsubsection{Out-Of-Model Comparison (1D)}
+
+\bgroup
+\def\arraystretch{1}
+\begin{table}[h]
+    \small
+    \centering
+    \begin{tabular}{c||c}
+        \textbf{Hyperparameter} & \textbf{Value} \\\hline\hline
+        \gls{ui} forgetting factor $\hat{\sigma}_w^2$ & $0.03$\\
+        \gls{b2p} forgetting factor $\epsilon$ & $0.03$\\
+        Feasible set $\mathcal{X}$ & $[-5,9]$\\
+        Number of \glspl{vop} per dimension $N_{v/D}$ & $10$\\
+        Local approximation factor $\delta$ & $1.5$\\
+        Bounding functions $a(\mathbf{X}_v),b(\mathbf{X}_v)$ & $a(\mathbf{X}_v)=0,b(\mathbf{X}_v)=1$\\
+        Output variance $\sigma_k^2$ & $1$\\
+        Length scale $\boldsymbol\Lambda_{11}$ & $\mathcal{G}(11, \nicefrac{10}{3})$, bounds $[2, 5]$\\
+        Noise $\sigma_n^2$ & $0.02$ \\
+        Number of bins per dimensions & $20$\\
+        Sliding window size $W$ & $30$
+    \end{tabular}
+    \caption{Hyperparameters of the one-dimensional out-of-model comparison.}
+    \label{tab:params_OOMC_1D}
+\end{table}
+\egroup
+
+\subsubsection{Out-Of-Model Comparison (2D)}
+
+\bgroup
+\def\arraystretch{1}
+\begin{table}[h]
+    \small
+    \centering
+    \begin{tabular}{c||c}
+        \textbf{Hyperparameter} & \textbf{Value} \\\hline\hline
+        \gls{ui} forgetting factor $\hat{\sigma}_w^2$ & $0.03$\\
+        \gls{b2p} forgetting factor $\epsilon$ & $0.03$\\
+        Feasible set $\mathcal{X}$ & $[-7,7]^2$\\
+        Number of \glspl{vop} per dimension $N_{v/D}$ & $5$\\
+        Local approximation factor $\delta$ & $1.5$\\
+        Bounding functions $a(\mathbf{X}_v),b(\mathbf{X}_v)$ & $a(\mathbf{X}_v)=0,b(\mathbf{X}_v)=1$\\
+        Output variance $\sigma_k^2$ & $1$\\
+        Length scales $\boldsymbol\Lambda_{11}, \boldsymbol\Lambda_{22}$ & $\mathcal{G}(11, \nicefrac{10}{3})$, bounds $[2, 5]$\\
+        Noise $\sigma_n^2$ & $0.02$ \\
+        Number of bins per dimensions & $20$ \\
+        Sliding window size $W$ & $80$
+    \end{tabular}
+    \caption{Hyperparameters of the two-dimensional out-of-model comparison.}
+    \label{tab:params_OOMC_2D}
+\end{table}
+\egroup
+
+\newpage
+\subsubsection{1-D Moving Parabola}
+
+\bgroup
+\def\arraystretch{1}
+\begin{table}[h]
+    \small
+    \centering
+    \begin{tabular}{c||c}
+        \textbf{Hyperparameter} & \textbf{Value} \\\hline\hline
+        \gls{ui} forgetting factor $\hat{\sigma}_w^2$ & varying\\
+        \gls{b2p} forgetting factor $\epsilon$ & varying\\
+        Feasible set $\mathcal{X}$ & $[-5,9]$\\
+        Number of \glspl{vop} per dimension $N_{v/D}$ & $10$\\
+        Local approximation factor $\delta$ & $1.5$\\
+        Bounding functions $a(\mathbf{X}_v),b(\mathbf{X}_v)$ & $a(\mathbf{X}_v)=0,b(\mathbf{X}_v)=4$\\
+        Output variance $\sigma_k^2$ & $1$\\
+        Length scale $\boldsymbol\Lambda_{11}$ & $\mathcal{G}(15, \nicefrac{10}{3})$, bounds $[2, 7]$\\
+        Noise $\sigma_n^2$ & $0.02$ \\
+        Number of bins per dimensions & $20$\\
+        Sliding window size $W$ & $30$
+    \end{tabular}
+    \caption{Hyperparameters of the one-dimensional moving parabola.}
+    \label{tab:params_parabola_1D}
+\end{table}
+\egroup
+
+\subsubsection{2-D Moving Parabola}
+
+\bgroup
+\def\arraystretch{1}
+\begin{table}[h]
+    \small
+    \centering
+    \begin{tabular}{c||c}
+        \textbf{Hyperparameter} & \textbf{Value} \\\hline\hline
+        \gls{ui} forgetting factor $\hat{\sigma}_w^2$ & \gls{ctvbo}: $0.009$, standard: $0.01$\\
+        \gls{b2p} forgetting factor $\epsilon$ & \gls{ctvbo}: $0.009$, standard: $0.028$\\
+        Feasible set $\mathcal{X}$ & $[-7,7]^2$\\
+        Number of \glspl{vop} per dimension $N_{v/D}$ & $5$\\
+        Local approximation factor $\delta$ & $1.5$\\
+        Bounding functions $a(\mathbf{X}_v),b(\mathbf{X}_v)$ & $a(\mathbf{X}_v)=0,b(\mathbf{X}_v)=4$\\
+        Output variance $\sigma_k^2$ & $1$\\
+        Length scales $\boldsymbol\Lambda_{11}, \boldsymbol\Lambda_{22}$ & $\mathcal{G}(15, \nicefrac{10}{3})$, bounds $[2, 7]$\\
+        Noise $\sigma_n^2$ & $0.02$ \\
+        Number of bins per dimensions & $20$ \\
+        Sliding window size $W$ & $80$
+    \end{tabular}
+    \caption{Hyperparameters of the two-dimensional moving parabola.}
+    \label{tab:params_parabola_2D}
+\end{table}
+\egroup
+
+\newpage
+\subsubsection{LQR Problem}
+
+\bgroup
+\def\arraystretch{1}
+\begin{table}[h]
+    \small
+    \centering
+    \begin{tabular}{c||c}
+        \textbf{Hyperparameter} & \textbf{Value} \\\hline\hline
+        \gls{ui} forgetting factor $\hat{\sigma}_w^2$ & $0.03$\\
+        \gls{b2p} forgetting factor $\epsilon$ & $0.03$\\
+        Feasible set $\mathcal{X}$ & $[-50,-25] \times [-4, -2]$\\
+        Scaling & $[3,\nicefrac{1}{4}]$\\
+        Number of \glspl{vop} per dimension $N_{v/D}$ & $4$\\
+        Local approximation factor $\delta$ & $1.2$\\
+        Bounding functions $a(\mathbf{X}_v),b(\mathbf{X}_v)$ & $a(\mathbf{X}_v)=0,b(\mathbf{X}_v)=2$\\
+        Output variance $\sigma_k^2$ & $1$\\
+        Length scales $\boldsymbol\Lambda_{11}, \boldsymbol\Lambda_{22}$ & $\mathcal{G}(6, \nicefrac{10}{3})$, bounds $[0.5, 6]$\\
+        Noise $\sigma_n^2$ & $0.02$ \\
+        Number of bins per dimensions & $20$ \\
+        Sliding window size $W$ & $80$
+    \end{tabular}
+    \caption{Hyperparameters of the LQR problem.}
+    \label{tab:params_LQR}
+\end{table}
+\egroup

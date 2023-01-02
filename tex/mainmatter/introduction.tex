@@ -1,0 +1,75 @@
+\chapter{Introduction}
+\label{chap:intro}
+
+\gls{bo} is a black-box optimization technique used to find an optimum of an unknown objective function utilizing only noisy function evaluations by sequentially querying based on a selection criterion.
+This makes \gls{bo} a powerful optimization tool in settings where only the performance depending on the decision variables can be measured.
+Among other things, \gls{bo} has been applied to tune an optimal controller in \textcite{Marco_2016} by minimizing a \gls{lqr} cost function using only limited prior knowledge about the dynamics of the system. As in this example, in literature on BO for controller tuning, mainly time-invariant systems have been considered. However, the system dynamics may vary over time for physical systems due to wear, e.g., considering spring and damping constants, or sudden changes, e.g., through an additional mass. An once found optimal controller could therefore become sub-optimal over time.
+The challenge then arises of not only finding the optimum but also tracking it over time. Solving such a dynamic optimization problem without prior knowledge of the system dynamics combined with concepts from event-triggered learning \cite{Solowjow_2020} could result in an autonomous adaptation of physical systems to changing environments and system properties.
+
+Suppose standard \gls{bo} algorithms are used to solve dynamic optimization problems. In that case, the results may be undesirable, and performance may degrade over time as they treat the information from each iteration as equally informative.
+However, recently obtained information should be valued higher than information from earlier iterations in a time-varying setting. Hence, the loss of information over time must be explicitly taken into account by the optimization algorithm. For \gls{bo}, implementing such a notion of forgetting is called \gls{tvbo}.
+
+As in standard \gls{bo}, \gls{tvbo} uses a \gls{gp} to model the objective function. Defining the \gls{gp} prior distribution, therefore, implies the prior belief over possible objective functions with respect to smoothness, differentiability, and continuity. Furthermore, in \gls{tvbo} the forgetting strategy implies the prior belief about the rate of change as well as the type of change of the objective function. In previous studies regarding time-varying regression two different forgetting strategies have been proposed -- \gls{b2p} forgetting and \gls{ui} forgetting \cite{Vaerenbergh_2012}.
+
+\gls{b2p} forgetting represents the idea that the expectation of the objective function propagates back to the prior distribution over time after observing no more data. Intuitively, as an algorithm gets more uncertain about a measurement, it defaults back to the state of the model before seeing any data. All previous empirical work in \gls{gp}-based \gls{tvbo} implicitly defined \gls{b2p} forgetting as their forgetting strategy. In contrast, \gls{ui} forgetting expresses model uncertainty over time based on a different assumption. Instead of assuming gradual change back to the prior distribution, \gls{ui} forgetting assumes gradual change around the measurement taken by maintaining its expected value.
+
+This thesis suggests that this form of modeling temporal change better captures the expected changes in the objective function arising in tasks such as tuning a controller in a time-varying context.
+Therefore, a novel method, \gls{uitvbo}, is presented using \gls{ui} forgetting in the context of \gls{gp}-based \gls{tvbo} based on modeling the temporal change as a Wiener process. It preserves past information and reduces dependency on the prior distribution compared to the state-of-the-art approach.
+
+Besides embedding assumptions about the temporal change of the objective function, this thesis investigates if embedding further assumptions on its shape into the \gls{gp} model can improve the performance of \gls{tvbo}. Therefore, this thesis considers the shape of the objective function to remain convex through time as many real-world problems result in convex objective functions (for example, the mentioned \gls{lqr} problem in control theory). Furthermore, solving convex function is often easier compared to solving non-convex functions \cite{Boyd_2004} indicating that considering only convex objective functions in \gls{tvbo} may simplify solving the dynamic optimization problem as, due to the convexity of the function, global exploration for the optimizer is not necessary.
+
+To embed this into \gls{tvbo}, the novel method \gls{ctvbo} is proposed imposing convexity constraints on the \gls{gp} posterior distribution at each time step, thus yielding in a hypothesis space with only convex function. These constraints enable useful extrapolation of local information for the global model. This reduces global exploration which is beneficial for many practical applications as changes in the decision variables should be limited, e.g., if the decision variables represent a parameterized controller. The method can be applied to any modeling approach in \gls{tvbo} independent of the forgetting strategy. However, this thesis shows that especially by combining the proposed methods \gls{ctvbo} and \gls{uitvbo}, the performance and robustness are improved compared to the state-of-the-art approach as they retained more structural information about objective function over time.
+
+\section{Problem Formulation}
+\label{sec:problem_set_up}
+
+The goal throughout this thesis is to find sequential optimal solutions $\mathbf{x}_t^*$ of an unknown time-varying objective function $f\colon \mathcal{X}\times\mathcal{T} \mapsto \R$ with $f_t(\mathbf{x}) \coloneqq f(\mathbf{x}, t)$ as 
+\begin{equation}
+    \mathbf{x}_t^* = \argmin_{\mathbf{x} \in \mathcal{X}} f_t(\mathbf{x})
+    \label{eq:tvbo_setup}
+\end{equation}
+at the discrete time step $t\in \mathcal{T} = \{1,2, \dots, T\}$ with time horizon $T$ within a feasible set $\mathbf{x} \in \mathcal{X} \subset \R^D$. At each time step an algorithm can query the objective function once at a location $\mathbf{x}_t$ and obtains a noisy observation in the form of
+\begin{equation}
+    y_t = f_t(\mathbf{x}_t) + w
+\end{equation}
+with zero mean Gaussian noise $w \sim \mathcal{N}\left( 0, \sigma_n^2 \right)$ which is independent between time steps.
+The performance of an algorithm in this time-varying setting will be measured in terms of the dynamic cumulative regret measuring the difference between optimal and chosen value. The dynamic cumulative regret will be formally introduced in \Cref{sec:bo}. The goal on an algorithm is to minimize the dynamic cumulative regret by balancing exploration for capturing the change in $f_t$, and exploitation to minimize regret. 
+
+The regularity assumption on $f_t$ in this thesis is that it is a sample from a \gls{gp} prior with the kernel defining its smoothness in the spatial dimensions as well as the temporal correlation between consecutive time steps. Furthermore, prior knowledge about the shape of the objective function $f_t$ is that it remains convex through time as formalized in Assumption \ref{ass:prior_knowledge_convex}.
+\begin{assumption}
+$f_t$ in \eqref{eq:tvbo_setup} is at least twice differentiable with respect to $\mathbf{x}$ and the Hessian $\nabla^2_{\mathbf{x}} f_t$ is semi-positive definite $\forall t \in \mathcal{T}$ and $\forall \mathbf{x} \in \mathcal{X}$.
+\label{ass:prior_knowledge_convex}
+\end{assumption}
+
+
+\section{Key Contributions}
+\label{sec:key_contributions}
+
+As an overview, the key contributions of this thesis are:
+\begin{itemize}
+
+    \item \textbf{\gls{uitvbo} -- \gls{ui} Forgetting in \gls{tvbo}:} The novel modeling approach \gls{uitvbo} using \gls{ui} forgetting is proposed retaining relevant information from the past, in contrast to \gls{b2p} forgetting. It is based on modeling the temporal dimension as a Wiener process and shows a more robust performance than the current state-of-the-art method using \gls{b2p} forgetting.
+    
+  
+    \item \textbf{\gls{ctvbo} -- Shape Constraints in \gls{tvbo}:} For objective functions remaining convex over time, this thesis introduces the novel method \gls{ctvbo}. It embeds the prior knowledge about convexity through shape constraints on the posterior distribution into \gls{tvbo}. This reduces the dynamic cumulative regret and its variance, especially in combination with \gls{uitvbo}, as it allows global extrapolation resulting in more informative local exploration and allowing for better exploitation.
+    
+    \item \textbf{Extensive Empirical Evaluation:} The resulting methods are evaluated in terms of their performance regarding dynamic cumulative regret with three different types of experiments:
+    \begin{enumerate}
+        \item Synthetic experiments created according to the model assumptions with predefined hyperparameters.
+        \item Synthetic experiments of a moving parabola inspired by benchmarks introduced by \textcite{Renganathan_2020}.
+        \item An application example in the form of a \gls{lqr} problem of an inverted pendulum with changing system dynamics.
+    \end{enumerate}
+\end{itemize}
+
+
+\subsubsection{Structure of the Thesis}
+
+The thesis is structured as follows. In \Cref{chap:background}, the necessary fundamentals for this thesis are presented. \Cref{sec:gaussian_process} presents the basics of \glspl{gp} as well as a method to enforce shape constraints. Afterwards, \Cref{sec:bo} introduces \gls{bo} as well as its extension to time-varying functions in \gls{tvbo}.
+After an overview of related work and differentiating the proposed methods from it in \Cref{chap:related_work}, the proposed methods of this thesis are derived and presented in \Cref{chap:concept} -- the modeling approach \gls{uitvbo} in \Cref{sec:forgetting_strategies} and in \Cref{sec:model_convex_functions} the algorithm \gls{ctvbo}. Subsequently, practical extensions are presented in \Cref{sec:extensions} In \Cref{chap:results}, the methods are compared with the state-of-the-art approach on various experiments. Finally, concluding remarks and a discussion about interesting future work are presented in \Cref{chap:conclusion}.
+
+
+%%%%% Emacs-related stuff
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "../../main"
+%%% End: 

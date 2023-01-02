@@ -1,0 +1,242 @@
+\section{Gaussian Process Regression}
+\label{sec:gaussian_process}
+
+\glspl{gp} are widely used for regression and build the foundation of many \gls{bo} algorithms by modeling its objective function. To introduce \gls{gp} regression, this section will follow \textcite{Rasmussen_2006} to which is also referred to for further details.
+
+\glspl{gp} are a nonparametric Bayesian approach to regression which explicitly incorporate uncertainty. The goal of \gls{gp} regression is to model the function $f \colon \mathcal{X} \mapsto \R$ with $\mathcal{X} \subset \R^D$ which is corrupted by zero mean Gaussian noise $w \sim \mathcal{N}\left( 0, \sigma_n^2 \right)$. An observation $y$ from $f(\mathbf{x})$ can therefore be expressed as
+\begin{equation}
+    y = f(\mathbf{x}) + w.
+    \label{eq:gp_objective_function}
+\end{equation}
+Taking $N$ observation of the objective function \eqref{eq:gp_objective_function} at the training points $\mathbf{X} = [\mathbf{x}_1, \dots, \mathbf{x}_N] \in R^{D \times N}$ results in a data set $\mathcal{D} \coloneqq \left\{ (\mathbf{x}_i, y_i)|i = 1,\dots, N \right\} = (\mathbf{X}, \mathbf{y})$ with $\mathbf{y} = [y_1,\dots,y_N] \in \R^N$ as the training targets in vector notation. 
+
+A \gls{gp} can be interpreted as modeling $f(\mathbf{x})$ as a distribution over functions and is fully defined as $f(\mathbf{x}) \sim \mathcal{GP}\left(m(\mathbf{x}), k(\mathbf{x}, \mathbf{x}') \right)$
+with the mean function $m$ and kernel $k$ as
+\begin{alignat}{2}
+    m \colon \mathcal{X} &\mapsto \R, \quad &&m(\mathbf{x}) = \EX\left[ f(\mathbf{x}) \right] \\
+    k \colon \mathcal{X} \times \mathcal{X} &\mapsto \R, \quad &&k(\mathbf{x}, \mathbf{x}') = \EX\left[ \left( f(\mathbf{x})- m(\mathbf{x})\right) \left(f(\mathbf{x}')- m(\mathbf{x}')\right) \right].
+\end{alignat}
+The mean function $m$ is often set to be constant as $m(\mathbf{x}) = \mu_0$ with $\mu_0$ either as zero or as the mean of the training targets $\mathbf{y}$. However, more complex mean functions are also possible.
+
+With the information contained in the data set $\mathcal{D}$, predictions $\MatBold{f}_*$ at $N_*$ test locations ${\mathbf{X}_* = [\MatBold{x}^*_{1}, \dots ,\MatBold{x}^*_{N_*}] \in \R^{D \times N_*}}$ can be made by setting up the multivariate Gaussian joint distribution over training targets and predictions as
+\begin{equation}
+    \left[ \begin{array}{c}
+    \mathbf{y}\\ 
+    \mathbf{f_*} 
+    \end{array}\right] \sim \mathcal{N} \left( \left[ \begin{array}{c}
+    m(\mathbf{X})\\ 
+    m(\mathbf{X}_*)
+    \end{array}\right], \left[\begin{array}{cc}
+    K(\mathbf{X},\mathbf{X}) + \sigma_n^2 \mathbf{I} & K(\mathbf{X},\mathbf{X}_*) \\ 
+    K(\mathbf{X}_*,\mathbf{X}) & K(\mathbf{X}_*,\mathbf{X}_*)
+    \end{array}\right] \right).
+    \label{eq:gp_joint_distribution}
+\end{equation}
+Here, the notation is used that $K(\mathbf{X}, \mathbf{X}')$ denotes a matrix with entries $K(\mathbf{X}, \mathbf{X}')_{i,j} = k(\mathbf{X}_i, \mathbf{X}'_j)$. The marginal distribution $\MatBold{f}_* \sim \mathcal{N}\left(m(\mathbf{X}_*), K(\mathbf{X}_*,\mathbf{X}_*) \right)$ is the prior prediction over the test locations. Conditioning the joint distribution \eqref{eq:gp_joint_distribution} on the data set $\mathcal{D}$ yields the conditioned posterior distribution
+\begin{equation}
+    \mathbf{f_*} | \mathcal{D} \sim \mathcal{N}(\boldsymbol\mu_*, \boldsymbol\Sigma_*) \label{eq:posterior_distribution}
+\end{equation}
+which again is a multivariate Gaussian distribution with mean $\boldsymbol\mu_*$ and covariance matrix $\boldsymbol\Sigma_*$ as
+\begin{alignat}{3}
+    &\boldsymbol\mu_* &&= \quad m(\mathbf{X}_*) &&+ K(\mathbf{X}_*,\mathbf{X}) \left(K(\mathbf{X},\mathbf{X})+ \sigma_n^2 \mathbf{I} \right)^{-1} \left(\mathbf{y} - m(\mathbf{X}) \right), \label{eq:gp_mean}\\
+    &\boldsymbol\Sigma_* &&= \underbrace{\vphantom{\left(K(\mathbf{X},\mathbf{X})+ \sigma_n^2 \mathbf{I} \right)^{-1}}K(\mathbf{X}_*,\mathbf{X}_*)}_\text{prior knowledge} &&- \underbrace{K(\mathbf{X}_*,\mathbf{X}) \left(K(\mathbf{X},\mathbf{X})+ \sigma_n^2 \mathbf{I} \right)^{-1} K(\mathbf{X},\mathbf{X}_*)\quad}_\text{obtained knowledge}. \label{eq:gp_cov}
+\end{alignat}
+The calculation of the mean and covariance of the posterior distribution can each be divided into a prior knowledge part defined though the \gls{gp} prior and an update part to this prior obtained through the information in data set $\mathcal{D}$.
+
+\subsubsection{Kernels}
+
+Selecting a suitable kernel for the regression task is crucial. A commonly chosen kernel is the \gls{se} kernel as 
+\begin{equation}
+    k(\mathbf{x}, \mathbf{x}') = \sigma_k^2 \exp\left(-\frac{1}{2} (\mathbf{x} - \mathbf{x}')^T \MatBold{\Lambda}^{-1} (\mathbf{x} - \mathbf{x}')\right)
+\end{equation}
+with the length scales $\MatBold{\Lambda} = \mathrm{diag}(\sigma_{l,1}^2, \dots, \sigma_{l,D}^2)$ and the output scale $\sigma_k^2$ as hyperparameters. It defines a \gls{rkhs} $\mathcal{H}_k(\mathcal{X})$ with the property that any function $f \in \mathcal{H}_k(\mathcal{X})$ is within the set of infinitely differentiable functions $C^\infty(\mathcal{X})$. Therefore, the mean estimate \eqref{eq:gp_mean} of the \gls{gp} posterior will also be in $C^\infty(\mathcal{X})$. Furthermore, the \gls{se} kernel is a \emph{universal} kernel meaning it can approximate any continuous function. However, since the hypothesis space of the \gls{gp} model with a \gls{se} kernel is restricted to functions in $C^\infty(\mathcal{X})$, choosing the \gls{se} kernel can be problematic in some practical applications as this smoothness assumption induces a strong bias and the universal property is only given in the presence of infinite data.
+
+Kernels can be tailed to specific problems as long as they satisfy the conditions of being symmetric and resulting in a positive definite Gram matrix $K$ (for more information see \textcite[Chap. 4.1]{Rasmussen_2006}). For example, in \textcite{Marco_2017} a kernel was specifically designed to imply a distribution over \gls{lqr} cost functions. Valid kernels can also be recombined resulting, e.g., in a product composite kernel as
+\begin{equation}
+    k_{comp}(\mathbf{x}, \mathbf{x}') = k_1(\mathbf{x}, \mathbf{x}') \otimes k_2(\mathbf{x}, \mathbf{x}').
+\end{equation} 
+This can be beneficial for capturing different characteristic in the data set $\mathcal{D}$ \cite{Duvenaud_2014}. Furthermore, if valid kernels $k_1(\mathbf{x}_1, \mathbf{x}_1')$ and $k_2(\mathbf{x}_2, \mathbf{x}_2')$ mapping to $\R$ are defined over different input spaces $\mathcal{X}_1$ and $\mathcal{X}_2$, multiplying $k_1$ and $k_2$ also results in a valid product composite kernel as
+\begin{equation}
+    k_{comp}\colon \mathcal{X}_1 \times \mathcal{X}_2 \mapsto \R, \quad k_{comp}(\{\mathbf{x}_1,\mathbf{x}_2\}, \{\mathbf{x}_1',\mathbf{x}_2'\}) = k_1(\mathbf{x}_1, \mathbf{x}_1') \otimes k_2(\mathbf{x}_2, \mathbf{x}_2').
+    \label{eq:compsite_kernel_diff}
+\end{equation}
+This property enables the use of different kernels for individual dimensions of the input $\mathbf{x}$ which might have different context \cite{Krause_2011}.
+
+\subsubsection{Linear Operators on Gaussian Processes}
+\label{sec:linear_operator}
+
+\glspl{gp} are closed under linear operators $\mathcal{L}$ such as differentiation \cite{Rasmussen_2006}. Considering a \gls{gp} as $f(\mathbf{x}) \sim \mathcal{GP}\left(m(\mathbf{x}),k(\mathbf{x}, \mathbf{x}')\right)$, this means applying the linear operator to $f(\mathbf{x})$ results again in a \gls{gp} as
+\begin{equation}
+    \mathcal{L}f(\mathbf{x}) \sim \mathcal{GP}\left(\mathcal{L}m(\mathbf{x}),\mathcal{L}k(\mathbf{x}, \mathbf{x}')\mathcal{L}^T\right)
+\end{equation}
+using the notation by \textcite{Agrell_2019}. Here, $\mathcal{L}k(\mathbf{x}, \mathbf{x}')$ and $k(\mathbf{x}, \mathbf{x}')\mathcal{L}^T$ indicate the operator $\mathcal{L}$ acting on $\mathbf{x}$ and $\mathbf{x}'$, respectively. The property of staying closed under linear operators is used by \textcite{Geist_2020} and \textcite{Jidling_2017} to embed prior knowledge in the form of physical insights into the \gls{gp} regression task as equality constaints on the \gls{gp}.
+
+
+\subsection{Linear Inequality Constraints}
+\label{sec:linear_constraints}
+
+Assumption \ref{ass:prior_knowledge_convex} in the problem formulation states that the objective function remains convex thought time. This means that the Hessian $\nabla_{\mathbf{x}} f_t$ remains positive definite throughout the feasible set at each time step. Therefore, this thesis uses a linear operator $\mathcal{L} = \frac{\pdiff^2}{\pdiff x_i^2}$ for every spatial dimension $i\in [1,\dots,D]$ as introduced above and apply inequality constraints on the posterior distribution $\mathbf{f}_*$ in \eqref{eq:posterior_distribution}. In combination with a smooth kernel such as the \gls{se} kernel, the positive definiteness of the Hessian of $f_t$ can be approximated. Applying such linear inequality constraints in \gls{gp} regression has been discussed among others by \textcite{Agrell_2019} and \textcite{Wang_2016} which build the theoretical background for this section.
+
+A \gls{gp} under linear inequality constraints requires the \gls{gp} posterior conditioned on the data set $\mathcal{D}$ to satisfy
+\begin{equation}
+    a(\mathbf{x}) \leq \mathcal{L} f(\mathbf{x}) \leq b(\mathbf{x})
+    \label{eq:linear_inequality_constraints_complete}
+\end{equation}
+for two bounding functions $a(\mathbf{x}), b(\mathbf{x})\colon \R^D \mapsto (\R \cup \{-\infty, \infty\})$ with $a(\mathbf{x}) < b(\mathbf{x}),\, \forall \mathbf{x} \in \mathcal{X}$. \textcite{Agrell_2019} and \textcite{Wang_2016} introduce a method to achieve this approximately by considering only a finite set of $N_v$ inputs ${\mathbf{X}_v = [\MatBold{x}^v_{1}, \dots ,\MatBold{x}^v_{N_v}] \in \R^{D \times N_v}}$, called the \glspl{vop}, at which \eqref{eq:linear_inequality_constraints_complete} has to hold. Furthermore, in \textcite{Agrell_2019} the assumption is made that the virtual observations $\mathcal{L} f(\MatBold{x}^v_{i})$ are corrupted by Gaussian noise $w_{v,i} \sim \mathcal{N}(0, \sigma_v^2)$. The reason for this is numerical stability in calculating the constrained posterior distribution. This yields in a relaxed formulation of \eqref{eq:linear_inequality_constraints_complete} as
+\begin{equation}
+    a(\mathbf{X}_v) \leq \mathcal{L} f(\mathbf{X}_v) + w_v \leq b(\mathbf{X}_v), \quad w_{v} \sim \mathcal{N}(\mathbf{0}, \sigma_v^2\MatBold{I}),
+    \label{eq:linear_inequality_constraints}
+\end{equation}
+where the constraints $a(\mathbf{x}), b(\mathbf{x})$ no longer have to hold for all $\mathbf{x} \in \mathcal{X}$. The \glspl{vop} do not have to be within the feasible set $\mathcal{X}$ but $\R^D$.
+
+To simplify notation, the corrupted virtual observations at the \glspl{vop} will be denoted as ${\tilde{C}(\mathbf{X}_v) \coloneqq \mathcal{L} f(\mathbf{X}_v) + w_v}$, the Gram matrix $K(\MatBold{X},\MatBold{X}')$ as $K_{\MatBold{X},\MatBold{X}'}$, and the mean function $m(\mathbf{x})$ as $\mu_\mathbf{x}$. Furthermore, $C(\mathbf{X}_v)$ will denote the event of $\tilde{C}$ satisfying \eqref{eq:linear_inequality_constraints} for all $\MatBold{x}^v_{i} \in \mathbf{X}_v$.
+
+Since applying a linear operator $\mathcal{L}$ to $f(\mathbf{x})$ results again in a \gls{gp} as described in \Cref{sec:linear_operator}, the joint distribution of the predictions $\mathbf{f}_*$, observations $\mathbf{y}$ and virtual observations $\tilde{C}$ can be set up as
+\begin{equation}
+    \left[ \begin{array}{c}
+    \mathbf{f_*} \\
+    \mathbf{y}\\ 
+    \tilde{C}
+    \end{array}\right] \sim \mathcal{N} \left( \left[ \begin{array}{c}
+    \mu_{\mathbf{X}_*}\\ 
+    \mu_{\mathbf{X}} \\
+    \mathcal{L}\mu_{\mathbf{X}_v}
+    \end{array}\right],
+    \left[\begin{array}{ccc}
+    K_{\mathbf{X}_*,\mathbf{X}_*}& K_{\mathbf{X}_*,\mathbf{X}} & K_{\mathbf{X}_*,\mathbf{X}_v}\mathcal{L}^T \\ 
+    K_{\mathbf{X},\mathbf{X}_*} & K_{\mathbf{X},\mathbf{X}} + \sigma_n^2\mathbf{I} & K_{\mathbf{X},\mathbf{X}_v}\mathcal{L}^T  \\
+    \mathcal{L}K_{\mathbf{X}_v,\mathbf{X}_*} & \mathcal{L}K_{\mathbf{X}_v,\mathbf{X}} & \mathcal{L}K_{\mathbf{X}_v,\mathbf{X}_v}\mathcal{L}^T + \sigma_v^2\mathbf{I}
+    \end{array}\right] \right).
+    \label{eq:unconstrained_joint_distribution}
+\end{equation}
+Conditioning the joint distribution on the data set $\mathcal{D}=(\mathbf{X}, \mathbf{y})$ results in
+\begin{equation}
+    \left.\left[ \begin{array}{c}
+    \mathbf{f_*} \\
+    \tilde{C}
+    \end{array}\right] \right\vert \mathcal{D} \sim \mathcal{N} \left( \left[ \begin{array}{c}
+    \mu_{\mathbf{X}_*} + A_2 \left( \mathbf{y} - \mu_{\mathbf{X}}\right) \\ 
+    \mathcal{L}\mu_{\mathbf{X}_v} + A_1 \left( \mathbf{y} - \mu_{\mathbf{X}}\right)
+    \end{array}\right],
+    \left[\begin{array}{cc}
+    B_2 & B_3 \\
+    B_3^T & B_1
+    \end{array}\right] \right)
+    \label{eq:unconstrained_joint_distribution2}
+\end{equation}
+with
+\begin{align}
+    A_1 &= (\mathcal{L}K_{\mathbf{X}_v,\mathbf{X}}) \left(K_{\mathbf{X},\mathbf{X}} + \sigma_n^2\mathbf{I} \right)^{-1} \label{eq:A1}\\
+    A_2 &= K_{\mathbf{X}_*,\mathbf{X}} \left(K_{\mathbf{X},\mathbf{X}} + \sigma_n^2\mathbf{I} \right)^{-1} \\
+    B_1 &= \mathcal{L}K_{\mathbf{X}_v,\mathbf{X}_v}\mathcal{L}^T + \sigma_v^2\mathbf{I} - A_1 K_{\mathbf{X},\mathbf{X}_v}\mathcal{L}^T \\
+    B_2 &= K_{\mathbf{X}_*,\mathbf{X}_*} - A_2 K_{\mathbf{X},\mathbf{X}_*} \\
+    B_3 &= K_{\mathbf{X}_*,\mathbf{X}_v}\mathcal{L}^T - A_2 K_{\mathbf{X},\mathbf{X}_v}\mathcal{L}^T\label{eq:B3}.
+\end{align}
+Further conditioning on $\tilde{C}$ yields in the multivariate Gaussian distribution
+\begin{equation}
+    \mathbf{f_*} | \mathcal{D}, \tilde{C} \sim \mathcal{N} \left(\mu_{\mathbf{X}_*} + A (\tilde{C} - \mathcal{L}\mu_{\mathbf{X}_v}) + B (\mathbf{y} - \mu_{\mathbf{X}}), \Sigma \right)
+\end{equation}
+with
+\begin{align}
+    A &= B_3 B_1^{-1} \label{eq:constrained_A}\\
+    B &= A_2 - A A_1 \\
+    \Sigma &= B_2 - A B_3^T.
+\end{align}
+Looking at the calculation of $A$ in \eqref{eq:constrained_A}, the role of the additional virtual observation noise $w_{v,i} \sim \mathcal{N}(0, \sigma_v^2)$ as a numerical regularization for calculating $B_1^{-1}$ becomes clear. An interpretation of $\sigma_v^2$ is that the probability of satisfying the constraints at the virtual locations is slightly reduced. In practice, $\sigma_v^2$ is set to be very small ($\sigma_v^2\approx 10^{-6}$).
+
+Up to this point, the marginalization of the virtual observations from \eqref{eq:unconstrained_joint_distribution2} remained Gaussian as ${\tilde{C} \sim \mathcal{N}(\mu_c, \Sigma_c)}$. By now conditioning on the event $C$ we define $\MatBold{C} = \tilde{C} | \mathcal{D}, C$ resulting in a \emph{truncated} multivariate normal distribution as
+\begin{equation}
+    \MatBold{C} \sim \mathcal{TN} \big(\underbrace{\mathcal{L}\mu_{\mathbf{X}_v} + A_1 \left( \mathbf{y} - \mu_{\mathbf{X}}\right)}_{\mu_{\mathcal{TN}} \in \R^{P \times 1}}, \underbrace{\vphantom{\mathcal{L}\mu_{\mathbf{X}_v} + A_1 \left( \mathbf{y} - \mu_{\mathbf{X}}\right)}B_1}_{\Sigma_{\mathcal{TN}} \in \R^{P \times P}} ,a(\mathbf{X}_v), b(\mathbf{X}_v) \big)
+    \label{eq:truncated_mvn}
+\end{equation}
+with $\mathcal{TN}(\mu_{\mathcal{TN}}, \Sigma_{\mathcal{TN}}, a, b)$ as the Gaussian $\mathcal{N}(\mu_{\mathcal{TN}}, \Sigma_{\mathcal{TN}})$ conditioned on the hyperbox $[a_1, b_1]\times\dots\times[a_{N_v}, b_{N_v}]$. Following \textcite[Lemma 1]{Agrell_2019} the resulting constrained posterior distribution is a compound Gaussian with a truncated mean as
+\begin{equation}
+    \mathbf{f_*} | \mathcal{D}, C \sim \mathcal{N} \left(\mu_{\mathbf{X}_*} + A (\MatBold{C} - \mathcal{L}\mu_{\mathbf{X}_v}) + B (\mathbf{y} - \mu_{\mathbf{X}}), \Sigma \right).
+    \label{eq:constrained_posterior_distribution}
+\end{equation}
+This posterior distribution is guaranteed to satisfy \eqref{eq:linear_inequality_constraints_complete} at the \glspl{vop} for ${\sigma_v^2 \to 0}$. However, \textcite{Wang_2016} observed that using a sufficient amount of \glspl{vop} throughout $\mathcal{X}$ results in a high probability of $\mathbf{f}_*$ satisfying the constraints in \eqref{eq:linear_inequality_constraints_complete} in $\mathcal{X}$.
+Lemma 2 of \textcite{Agrell_2019} provides a numerically more stable implementation of the factors \eqref{eq:A1} to \eqref{eq:B3} based on Cholesky factorization and is summarized in Appendix \ref{apx:numerically_stable_factors}.
+
+\subsection{Sampling from the Constrained Posterior Distribution}
+\label{sec:sampling_posterior}
+
+Even though the posterior distribution \eqref{eq:constrained_posterior_distribution} is Gaussian, it can no longer be calculated in closed form as the mean is truncated. Therefore, the posterior has to be approximated using sampling. This can be achieved following Algorithm~\ref{algo:constrained_posterior} proposed by \textcite[Algorithm~3]{Agrell_2019}.
+
+\begin{algorithm}[h]
+\centering
+\caption{Sampling form the constrained posterior distribution \cite{Agrell_2019}}
+\begin{algorithmic}[1]
+\Require Calculate factors $A$, $B$, $\Sigma$, $A_1$, $B_1$
+\State Find a matrix $\MatBold{Q}$ s.t. $\MatBold{Q}^T \MatBold{Q} = \Sigma \in \R^{M \times M}$ using Cholesky decomposition.
+\State Generate $\tilde{\MatBold{C}}_k$, a $P \times k$ matrix where each column is a sample of $\tilde{C} | \mathcal{D}, C$ from the truncated multivariate normal distribution \eqref{eq:truncated_mvn}.
+\State Generate $\MatBold{U}_k$, a $M \times k$ matrix with k samples of the multivariate standard normal distribution $\mathcal{N}(\mathbf{0}, \mathbf{I}_M)$ with $\mathbf{I}_M \in \R^{M \times M}$.
+\State Calculate the $M \times k$ matrix where each column is a sample from the distribution $\mathbf{f_*} | \mathcal{D}, C$ in \eqref{eq:constrained_posterior_distribution} as
+\begin{equation}
+    \left[\mu_{\mathbf{X}_*} + B (\mathbf{y} - \mu_{\mathbf{X}}) \right] \oplus \left[A(- \mathcal{L}\mu_{\mathbf{X}_v} \oplus \tilde{\MatBold{C}}_k) +  \MatBold{Q}\MatBold{U}_k \right]
+\end{equation}
+with $\oplus$ representing the operation of adding the $M \times 1$ vector on the left hand side to each column of the $M\times k$ matrix on the right hand side.
+\end{algorithmic}
+\label{algo:constrained_posterior}
+\end{algorithm}
+The difficulty in sampling from the posterior lies in sampling from the truncated multivariate normal distribution. An approach to rejection sampling via a minimax tilting method was proposed by \textcite{Botev2016} resulting in iid samples of \eqref{eq:truncated_mvn}. The algorithm has shown to perform well with minimal error up to a dimension of $P \approx 100$. However, rejection sampling suffers from the curse of dimensionality as the acceptance rate drops exponentially with growing dimensions. Therefore, one has to fall back to approximate sampling using \gls{mcmc} methods. In the case of sampling from the truncated multivariate normal distribution, Gibbs sampling can be used, as calculating the necessary conditional distributions is possible. For the case of monotonicity constraints on the posterior distribution ($\mathcal{L}=\frac{\pdiff}{\pdiff x_i}$) a Gibbs sampling method has been proposed by \textcite{Wang_2016}. It has been adapted to work with any constraints $a(\cdot), b(\cdot)$ as well as any operator $\mathcal{L}$ as described in this section and is shown in Algorithm~\ref{algo:gibbssampling}. 
+The truncated normal distribution from which has to be sampled in line 5, Algorithm~\ref{algo:gibbssampling}, is one dimensional. Therefore, the rejection sampling method by \textcite{Botev2016} can again be used for this sub-task to efficiently generate the iid samples.
+
+\begin{algorithm}[h]
+\centering
+\caption{Gibbs sampling for the truncated multivariate normal distribution (adapted form \textcite[Section~3.1.2]{Wang_2016})}
+\begin{algorithmic}[1]
+\Require Calculate mean $\mu_{\mathcal{TN}}$ and covariance $\Sigma_{\mathcal{TN}}$ of the truncated multivariate normal distribution \eqref{eq:truncated_mvn}
+\For{$k = 1,\dots, K$}
+\For{$i = 1,\dots, P$}
+\State $\mu^k_{(i)} = \mu_{\mathcal{TN},(i)} + \Sigma_{\mathcal{TN},(i, \mathbf{-i})} \,  \Sigma^{-1}_{\mathcal{TN}, (\mathbf{-i}, \mathbf{-i})} \left( \tilde{\MatBold{C}}^k_{(\mathbf{-i})} - \mu_{\mathcal{TN},(\mathbf{-i})}\right)$
+\State $\sigma_{(i)} = \Sigma_{\mathcal{TN},(i, i)} - \Sigma_{\mathcal{TN},(i, \mathbf{-i})} \,\Sigma^{-1}_{\mathcal{TN}, (\mathbf{-i}, \mathbf{-i})} \,\Sigma^T_{\mathcal{TN},(i, \mathbf{-i})}$
+\State Draw a sample $\tilde{\mathrm{C}}^{k+1}_{(i)}|\tilde{\MatBold{C}}^k_{(\mathbf{-i})}, \mathcal{D} \sim \mathcal{TN}(\mu^k_{(i)}, \sigma_{(i)}, a_{(i)}, b_{(i)})$
+\EndFor
+\EndFor
+
+\noindent with $\tilde{\MatBold{C}}^k_{(\mathbf{-i})} = (\tilde{\mathrm{C}}^{k+1}_{(0)},\dots, \tilde{\mathrm{C}}^{k+1}_{(i-1)}, \tilde{\mathrm{C}}^{k}_{(i+1)},\dots,\tilde{\mathrm{C}}^{k}_{(N_v)})$, $\mu_{\mathcal{TN},(\mathbf{-i})}$ as the mean vector without the $i$th element, and $\Sigma^{-1}_{\mathcal{TN}, (\mathbf{-i}, \mathbf{-i})}$ as the covariance matrix without the $i$th row and $i$th column.
+\end{algorithmic}
+\label{algo:gibbssampling}
+\end{algorithm}
+
+\subsubsection{On the Virtual Observation Locations}
+
+As mentioned, sampling from the truncated multivariate normal distribution \eqref{eq:truncated_mvn} is the most difficult and computationally demanding part of the presented approach to constrain the \gls{gp} posterior. Assuming that one linear operator $\mathcal{L}$ for each of the spatial dimensions $D$ of a \gls{gp} is used, then the dimension of \eqref{eq:truncated_mvn} would be $P = D \cdot N_v$. Furthermore, the number of \glspl{vop} $N_v$ depends exponentially on the dimensions D if the whole hyper cube should be filled equidistantly. Therefore, the dimensions of $P$ are
+\begin{equation}
+    P = D \cdot N_{v/D}^D .
+    \label{eq:scaling_of_P}    
+\end{equation}
+with $N_{v/D}$ as the number of \glspl{vop} per dimension 
+This is visualized for different spatial dimensions in Figure~\ref{fig:dims_vops}.
+\begin{figure}[t]
+    \centering
+    \input{thesis/figures/pgf_figures/dims_vops.pgf}
+    \caption[Dependency of the number of \glspl{vop} per dimension on the dimension $P$ of the truncated multivariate normal distribution.]{Dependency of the number of \glspl{vop} per dimension on the dimension $P$ of the truncated multivariate normal distribution \eqref{eq:truncated_mvn} for different spatial dimensions $D$. The displayed bounds are not fixed as sampling strongly depends on the covariance matrix in \eqref{eq:truncated_mvn}.}
+   \label{fig:dims_vops}
+\end{figure}
+Depending on $P$, different sampling methods are suitable. Up to $P\approx 100$ the rejection sampling method by \textcite{Botev2016} showed to perform well. However, at higher dimensions $P$ the acceptance rate becomes too low and Gibbs sampling as proposed in Algorithm~\ref{algo:gibbssampling} showed to perform well. While Gibbs sampling is not limited by an acceptance rate because every sample is accepted, sampling at in dimensions $P>250$ showed to be also not feasible as the computational effort is too high since the inner loop of Algorithm~\ref{algo:gibbssampling} scales with $P$. However, these bounds on the algorithms are not fixed as sampling strongly depends on the covariance matrix of \eqref{eq:truncated_mvn}. 
+
+There have been proposals for choosing the VOPs optimally. These methods try to find the locations within the feasible set $\mathcal{X}$ at which the probability of satisfying \eqref{eq:linear_inequality_constraints_complete} is the lowest. These locations with low probability are then added to the set of \glspl{vop} \cite{Agrell_2019}\cite{Wang_2016}. However, this can still result in a large set of \glspl{vop} in higher dimensions. Instead, a different approach could be to choose the \glspl{vop} based on a sensor placement problem, thus choosing the locations which maximize the probability of satisfying \eqref{eq:linear_inequality_constraints_complete} for all $\mathbf{x} \in \mathcal{X}$. This would reduce the number of \glspl{vop} needed but also increase the computational complexity significantly. 
+
+\subsection{Example: 1D Convexity Constrained Gaussian Process}
+
+To show the concept of constraining a \gls{gp} and the influence of choosing the \glspl{vop}, a short one dimensional example is presented. Considering the prior knowledge in Assumption \ref{ass:prior_knowledge_convex} of the objective function staying convex through time, the constrained posterior distribution can be constructed using a linear operator $\mathcal{L} = \frac{\pdiff^2}{\pdiff x_i^2}$ and defining the constraint functions $a(\mathbf{x}) = 0$ and $b(\mathbf{x}) = +\infty$ to enforce convexity. Furthermore, nine \glspl{vop} are defined in an equidistant grid $\mathbf{X}_v = [-4, \dots, 4] \in \R^9$. To construct the posterior, the Gram matrices with the applied linear operator and the mean with the linear operator have to be constructed. As the mean function is assumed to be constant applying the linear operator results in $\mathcal{L}\mu_{\mathbf{X}_v} = \mathbf{0}$. The Gram matrices are constructed as
+\begin{align}
+    K_{\mathbf{X},\mathbf{X}_v}\mathcal{L}^T &= \left[(K^{1,0}_{\MatBold{X}_{v},\mathbf{X}})^T, \dots, (K^{D,0}_{\MatBold{X}_{v},\mathbf{X}})^T \right]\label{eq:constrained_gram1}\\
+    K_{\mathbf{X}_*,\mathbf{X}_v}\mathcal{L}^T &= \left[(K^{1,0}_{\MatBold{X}_{v},\mathbf{X}_*})^T, \dots, (K^{D,0}_{\MatBold{X}_{v},\mathbf{X}_*})^T \right] \label{eq:constrained_gram2}\\
+    \mathcal{L}K_{\mathbf{X}_v,\mathbf{X}_v}\mathcal{L}^T &= \left[\begin{array}{ccc}
+    K^{1,1}_{\MatBold{X}_{v},\MatBold{X}_{v}} & \cdots & K^{1,D}_{\MatBold{X}_{v},\MatBold{X}_{v}} \\
+    \vdots & \ddots & \vdots\\
+     K^{D,1}_{\MatBold{X}_{v},\MatBold{X}_{v}} & \cdots & K^{D,D}_{\MatBold{X}_{v},\MatBold{X}_{v}}
+    \end{array}\right] \label{eq:constrained_gram3}
+\end{align}
+with the notation of $K^{i,0}_{\mathbf{x},\mathbf{x}'} = \frac{\pdiff^2}{\pdiff x_i^2}K(\mathbf{x},\mathbf{x}')$ and $K^{i,j}_{\mathbf{x},\mathbf{x}'} = \frac{\pdiff^4}{\pdiff x_i^2 {x'}_j^2}K(\mathbf{x},\mathbf{x}')$ as partial derivatives, which are listed in Appendix \ref{apx:derivatives} for the \gls{se} kernel.
+\begin{figure}[h]
+    \centering
+    \input{thesis/figures/pgf_figures/example_constrained_GP.pgf}
+    \caption[Comparing unconstrained and constrained prior and posterior distributions.]{Unconstrained (red) and constrained (blue) prior distribution on the left as well as the unconstrained (red) \eqref{eq:posterior_distribution} and constrained (blue) \eqref{eq:constrained_posterior_distribution} posterior distribution conditioned on the training data from the objective function (black) on the right. The green points are the \glspl{vop}. The thin lines are samples from the corresponding distribution. The hyperparameters are $\mu_0=0$, $\sigma
+   ^2_l = 1$, $\sigma_k^2 = 4$, $\sigma_v^2 = 10^{-8}$, $\sigma_n^2 = 0.05^2$.}
+   \label{fig:constrained_gp_example}
+\end{figure}
+The resulting posterior distribution by applying Algorithm~\ref{algo:constrained_posterior} is displayed in Figure~\ref{fig:constrained_gp_example}.
+The sampling algorithm for the constrained \gls{gp} prior distribution as displayed in Figure~\ref{fig:constrained_gp_example} (left) is given in Appendix \ref{apx:sampling_from_prior}. It can be observed that at the \glspl{vop} the posterior is convex. However, outside of the \glspl{vop} the posterior converges back to the unconstrained posterior, highlighting the importance of choosing the \glspl{vop}.

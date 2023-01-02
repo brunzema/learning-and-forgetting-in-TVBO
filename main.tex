@@ -1,0 +1,68 @@
+
+\documentclass[11pt, a4paper, headsepline, BCOR = 1cm]{scrbook}
+% BCOR = Binding correction. Adjusts inner page margin for bound books.
+% headsepline produces a horizontal line under chapter title on page headers
+
+\input{preamble}
+
+\providecommand{\figheight}{2.5in}%
+\providecommand{\figwidth}{3.5in}%
+
+\begin{document}
+%\sffamily
+
+\frontmatter
+\input{tex/frontmatter/titlepage}
+\cleardoublepage
+
+\KOMAoption{headsepline}{false}
+\setcounter{page}{1}
+\input{tex/frontmatter/eidesstattliche_erk}
+\cleardoublepage
+
+\input{tex/frontmatter/abstract_en}
+\cleardoublepage
+
+\input{tex/frontmatter/abstract_de}
+\cleardoublepage
+
+\KOMAoption{headsepline}{true}
+
+\tableofcontents
+
+\mainmatter
+\raggedbottom
+
+\input{tex/mainmatter/introduction}
+\input{tex/mainmatter/background}
+\input{tex/mainmatter/related_work}
+\input{tex/mainmatter/concept}
+\input{tex/mainmatter/results}
+\input{tex/mainmatter/conclusion}
+
+\appendix
+\input{tex/appendix/appendix}
+\input{tex/appendix/appendix_hyperparameters}
+
+\backmatter
+
+% Print list of mathematical symbols
+% \glossarystyle{listhypergroup}
+\printnoidxglossaries
+
+\listoffigures
+
+\listoftables
+
+\printbibliography
+
+% List of fixme notes
+% \listoffixmes
+
+\end{document}
+
+%%%%% Emacs-related stuff
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: t
+%%% End: 

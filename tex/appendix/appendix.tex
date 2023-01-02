@@ -1,0 +1,159 @@
+\chapter{Appendix}
+
+\section{Numerically Stable Calculation of the Constrained Gaussian Process Posterior Distribution}
+\label{apx:numerically_stable_factors}
+
+A more stable calculation of the factors $A_i$, $B_i$ and $\Sigma$ is provided in \cite[Lemma~2]{Agrell_2019} using Cholesky factorization instead of calculating inverses. In the following, $\mathrm{chol}(P)$ is defined as the lower triangular Cholesky factor of $P$ and $X = (A \setminus B)$ as the solution to the linear system $AX = B$, which can be computed very efficiently if $A$ is rectangular.
+
+Following now \cite[Lemma~2]{Agrell_2019}, let $L = \mathrm{chol}(K_{\mathbf{X},\mathbf{X}} + \sigma_v^2\mathbf{I})$, $v_1 = L \setminus \mathcal{L}K_{\mathbf{X}_v,\mathbf{X}}$ and $v_2 = L \setminus K_{\mathbf{X},\mathbf{X}_*}$. Then the factors \eqref{eq:A1} to \eqref{eq:B3} can be computed as 
+\begin{align}
+    A_1 &= \left(L^T \setminus v_1\right)^T \\
+    A_2 &= \left(L^T \setminus v_2\right)^T \\
+    B_1 &= \mathcal{L}K_{\mathbf{X}_v,\mathbf{X}_v}\mathcal{L}^T + \sigma_v^2 \mathbf{I} - v_1^T v_1 \\
+    B_2 &= K_{\mathbf{X}_*,\mathbf{X}_*} - v_2^T v_2 \\
+    B_3 &= K_{\mathbf{X}_*,\mathbf{X}_v}\mathcal{L}^T - v_2^T v_1.
+\end{align}
+Let $L_1 = \mathrm{chol}(B_1)$ and let $v_3 = L_1^T \setminus B_3^T$, than the final factors for the posterior distribution \eqref{eq:constrained_posterior_distribution} can be computed as
+\begin{equation}
+    A = \left(L_1^T \setminus v_3\right)^T, \quad B = A_2 - A A_1, \quad \Sigma = B_2 - v_3^T v_3.
+\end{equation}
+For the derivation and proof it is referred to \cite[Appendix~B]{Agrell_2019}.
+
+\section{Sampling from the Constrained Gaussian Process Prior Distribution}
+\label{apx:sampling_from_prior}
+
+Sampling from the \gls{gp} prior distribution is similar to sampling from the posterior distribution as described in \cref{sec:sampling_posterior}. To sample from the constrained prior, the joint distribution of $\mathbf{y}$, $\mathbf{f_*}$ and $\tilde{C}$ in \eqref{eq:unconstrained_joint_distribution} has to be first conditioned on $\tilde{C}$. Afterwards, the prior distribution $\mathbf{f_*} \sim \mathcal{N}(\mu_{\mathbf{X}_*} + \hat{A} (\MatBold{\hat{C}} - \mathcal{L}\mu_{\mathbf{X}_v}), \hat{\Sigma})$ can be obtained through marginalizing out $\mathbf{f_*}$ from the conditioned joint distribution. The resulting multivariate normal distribution is compound Gaussian distribution with a truncated mean with the following factors
+
+\begin{equation}
+    \begin{aligned}[t]
+    \hat{B}_1 &= \mathcal{L}K_{\mathbf{X}_v,\mathbf{X}_v}\mathcal{L}^T + \sigma_v^2\mathbf{I}\\
+    \hat{B}_2 &= K_{ \mathbf{X}_*, \mathbf{X}_*} \\
+    \hat{B}_3 &= K_{ \mathbf{X}_*,\mathbf{X}_v}\mathcal{L}^T \\
+    \hat{L}_1 &= \mathrm{chol}(\hat{B}_1)
+\end{aligned}
+\qquad 
+\begin{aligned}[t]
+    \hat{v}_3 &= \hat{L}_1^T \setminus \hat{B}_3^T \\
+    \hat{A} &= \left(\hat{L}_1^T \setminus \hat{v}_3\right)^T \\
+    \hat{\Sigma} &= \hat{B}_2 - \hat{v}_3^T \hat{v}_3,
+\end{aligned}
+\end{equation}
+and the truncated multivariate normal distribution
+\begin{equation}
+    \MatBold{\hat{C}}=\hat{C} | C \sim \mathcal{TN}\left(\mathbf{0}, \hat{B}_1, a( \mathbf{X}_v), b( \mathbf{X}_v) \right).
+    \label{eq:constrained_prior}
+\end{equation}
+The algorithm for sampling from the prior is displayed in Algorithm~\ref{algo:constrained_prior} below.
+
+\begin{algorithm}[h]
+\centering
+\caption{Sampling form the constrained prior distribution}
+\begin{algorithmic}[1]
+\Require Calculate factors $\hat{A}$, $\hat{\Sigma}$, $\hat{B}_1$
+\State Find a matrix $\MatBold{Q}$ s.t. $\MatBold{Q}^T \MatBold{Q} = \Sigma \in \R^{M \times M}$ using Cholesky decomposition.
+\State Generate $\hat{\MatBold{C}}_k$, a $N_v \times k$ matrix where each column is a sample of $\hat{C} | C$ from the truncated multivariate normal distribution \eqref{eq:constrained_prior}.
+\State Generate $\MatBold{U}_k$, a $M \times k$ matrix with k samples of the multivariate standard normal distribution $\mathcal{N}(\mathbf{0}, \mathbf{I}_M)$ with $\mathbf{I}_M \in \R^{M \times M}$.
+\State Calculate the $M \times k$ matrix where each column is a sample from the distribution $\mathbf{f_*} | C$ as
+\begin{equation}
+    \mu_{ \mathbf{X}_*} \oplus \left[A(- \mathcal{L}\mu_{ \mathbf{X}_v} \oplus \tilde{\MatBold{C}}_k) +  \MatBold{Q}\MatBold{U}_k \right]
+\end{equation}
+with $\oplus$ representing the operation of adding the $M \times 1$ vector on the left hand side to each column of the $M\times k$ matrix on the right hand side.
+\end{algorithmic}
+\label{algo:constrained_prior}
+\end{algorithm}
+
+\section{Derivatives of the Squared-Exponential Kernel}
+\label{apx:derivatives}
+
+To constrain the \gls{gp} posterior, the partial derivatives of the spatial kernel are needed. Following are the partial derivatives of the \gls{se} kernel
+
+\begin{equation}
+    k(\mathbf{x}, \mathbf{x}') = \sigma_k^2 \exp\left(-\frac{1}{2} (\mathbf{x} - \mathbf{x}')^T \MatBold{\Lambda}^{-1} (\mathbf{x} - \mathbf{x}')\right), \quad \MatBold{\Lambda} = \begin{bmatrix*}[c]
+                            \MatBold{\Lambda}_{11} &  \cdots & 0\\
+                            \vdots & \ddots & \vdots\\
+                            0 &  \cdots & \MatBold{\Lambda}_{DD}
+                        \end{bmatrix*}.
+\end{equation}
+
+
+\subsubsection{Second derivative w.r.t. $x'_{j}$:}
+\begin{equation}
+    \frac{\partial^2 k(\mathbf{x}, \mathbf{x}')}{\partial {x'}_j^2}  = \Lambda_{jj}^{-1} \Big(\hat{\mathrm{d}}_j^2(\mathbf{x}, \mathbf{x}')  - 1\Big) k(\mathbf{x}, \mathbf{x}')
+\end{equation}
+
+\subsubsection{Second derivative w.r.t. $x_{j}$ and $x'_{j}$ (diagonal elements of $\mathcal{L} K_{*,*} \mathcal{L}^T$):}
+\begin{equation}
+    \frac{\partial^4 k(\mathbf{x}, \mathbf{x}')}{\partial x_{j}^2 \partial {x'}_{j}^2}  = \Lambda_{jj}^{-2} \Big(\hat{\mathrm{d}}_j^2(\mathbf{x}, \mathbf{x}') \,\hat{\mathrm{d}}_j^2(\mathbf{x}, \mathbf{x}')- 6\, \hat{\mathrm{d}}_j^2(\mathbf{x}, \mathbf{x}') +3 \Big) k(\mathbf{x}, \mathbf{x}')
+\end{equation}
+% \begin{equation}
+% \begin{split}
+%     \frac{\partial^4 k(\mathbf{x}_1, \mathbf{x}_2)}{\partial x_{1,i}^2 \partial x_{2,j}^2}  = \Lambda_{ii}^{-1}\Lambda_{jj}^{-1} \Big(&\hat{\mathrm{d}}_i^2(\mathbf{x}_1, \mathbf{x}_2)\, \hat{\mathrm{d}}_j^2(\mathbf{x}_1, \MatBold{x}_2) - \hat{\mathrm{d}}_i^2(\MatBold{x}_1, \MatBold{x}_2) \\
+%     &- \hat{\mathrm{d}}_j^2(\MatBold{x}_1, \MatBold{x}_2) +1 \Big) k(\MatBold{x}_1, \MatBold{x}_2)
+% \end{split}
+% \end{equation}
+\subsubsection{Second derivative w.r.t. $x_{i}$ and $x'_{j}$ (off-diagonal elements of $\mathcal{L} K_{*,*} \mathcal{L}^T$):}
+\begin{equation}
+    \frac{\partial^4 k(\mathbf{x}, \mathbf{x}')}{\partial x_{i}^2 \partial {x'}_{j}^2}  = \Lambda_{ii}^{-1}\Lambda_{jj}^{-1} \Big(\hat{\mathrm{d}}_i^2(\mathbf{x}, \mathbf{x}')\, \hat{\mathrm{d}}_j^2(\mathbf{x}, \MatBold{x}') - \hat{\mathrm{d}}_i^2(\MatBold{x}, \MatBold{x}') - \hat{\mathrm{d}}_j^2(\MatBold{x}, \MatBold{x}') +1 \Big) k(\MatBold{x}, \MatBold{x}')
+\end{equation}
+
+with the squared distance in dimension $k$ normalized by the corresponding lengthscale $\hat{\mathrm{d}}_k^2(\MatBold{x}, \MatBold{x}') = \Lambda_{kk}^{-1} (x_{k} - x'_{k})^2$.
+
+
+\section{Correlation between Forgetting Factors}
+\label{apx:forgetting_factors}
+
+The forgetting factors of \gls{b2p} forgetting as in $k_{T,tv}$ and \gls{ui} forgetting as in $k_{T,wp}$ both imply the variance for $\tau=0$ after one time step after observing a measurement. This is shown below for one training point $x$ at time step $t_1$ and a test points $x_*$ at time step $t_2$ with $\tau = x-x_* = 0$.
+
+\subsubsection{Back-2-Prior Forgetting}
+
+Posterior covariance using the temporal kernel $k_{T,tv}$, $\tau = 0$, $t_2>t_1$, and $\Delta t = 1$:
+\begin{align}
+    \sigma_k^2 \cdot &(1-\epsilon)^{\frac{|t_2-t_2|}{2}} - \sigma_k^2 \cdot (1-\epsilon)^{\frac{|t_2-t_1|}{2}} \left[ \sigma_k^2 \cdot (1-\epsilon)^{\frac{|t_1-t_1|}{2}} \right]^{-1} \sigma_k^2 \cdot (1-\epsilon)^{\frac{|t_1-t_2|}{2}} \\
+    &=\sigma_k^2 - \sigma_k^2 \cdot (1-\epsilon)^{\frac{|t_2-t_1|}{2}} \,(1-\epsilon)^{\frac{|t_1-t_2|}{2}} \\
+    &=\sigma_k^2 - \sigma_k^2 \cdot (1-\epsilon)^{|t_2-t_1|} \\
+    &= \sigma_k^2 \cdot \epsilon  \quad \text{with } \Delta t = 1
+\end{align}
+For $\sigma_k^2 = 1$ it can bee seen, that the variance after one time step is $\epsilon$.
+
+\subsubsection{Uncertainty-Injection Forgetting}
+
+Posterior covariance using the temporal kernel $k_{T,wp}$, $\tau = 0$, $t_2>t_1$, and $\Delta t = 1$::
+\begin{align}
+    \sigma_k^2 \cdot &\sigma_w^2 (\min(t_2,t_2)-c_0)  - \frac{\sigma_k^2 \cdot \sigma_w^2 (\min(t_2,t_1)-c_0) \cdot\sigma_k^2 \cdot \sigma_w^2 (\min(t_2,t_1)-c_0)}{\sigma_k^2 \cdot \sigma_w^2 (\min(t_1,t_1)-c_0)}  \\
+    &=\sigma_k^2 \cdot \sigma_w^2 (\min(t_2,t_2)-c_0) - \sigma_k^2 \cdot \sigma_w^2 (\min(t_2,t_1)-c_0) \\
+    &=\sigma_k^2 \cdot \sigma_w^2 (t_2-c_0) - \sigma_k^2 \cdot \sigma_w^2 (t_1-c_0) \\
+    &= \sigma_k^2 \cdot \sigma_w^2 (t_2-t_1) \\
+    &= \sigma_k^2 \cdot \sigma_w^2 = \hat{\sigma}_w^2 \quad \text{with } \Delta t = 1
+\end{align}
+For $\sigma_k^2 = 1$ it can bee seen, that the variance after one time step is $\sigma_w^2 = \hat{\sigma}_w^2$.
+
+\newpage
+\section{Trajectories of the 1-D Moving Parabola}
+\label{apx:trajectories_1D_parabola}
+
+\begin{figure}[h]
+    \centering
+    \input{thesis/figures/pgf_figures/Parabola1D_B2P_unconstrained.pgf}
+    \caption[Trajectory of unconstrained \gls{b2p} forgetting for the one-dimensional moving parabola.]{Trajectory of unconstrained \gls{b2p} forgetting ($\epsilon=0.028$) for the one-dimensional moving parabola. The white circles denote the initial training data.}
+    \label{fig:Parabola1D_B2P_unconstrained}
+\end{figure}
+\begin{figure}[b]
+    \centering
+    \vspace{-5cm}
+    \input{thesis/figures/pgf_figures/Parabola1D_B2P_constrained.pgf}
+    \caption[Trajectory of constrained \gls{b2p} forgetting for the one-dimensional moving parabola.]{Trajectory of constrained \gls{b2p} forgetting ($\epsilon=0.009$) for the one-dimensional moving parabola. The white circles denote the initial training data.}
+    \label{fig:Parabola1D_B2P_constrained}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    \input{thesis/figures/pgf_figures/Parabola1D_UI_unconstrained.pgf}
+    \caption[Trajectory of unconstrained \gls{ui} forgetting for the one-dimensional moving parabola.]{Trajectory of unconstrained \gls{ui} forgetting ($\hat{\sigma}_w^2=0.01$) for the one-dimensional moving parabola. The white circles denote the initial training data.}
+    \label{fig:Parabola1D_UI_unconstrained}
+\end{figure}
+\begin{figure}[h]
+    \centering
+    \input{thesis/figures/pgf_figures/Parabola1D_UI_constrained.pgf}
+    \caption[Trajectory of constrained \gls{ui} forgetting for the one-dimensional moving parabola.]{Trajectory of constrained \gls{ui} forgetting ($\hat{\sigma}_w^2=0.009$) for the one-dimensional moving parabola. The white circles denote the initial training data.}
+    \label{fig:Parabola1D_UI_constrained}
+\end{figure}

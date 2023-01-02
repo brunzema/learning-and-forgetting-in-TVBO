@@ -1,0 +1,463 @@
+\chapter{Results}
+\label{chap:results}
+
+In this chapter, the proposed methods are evaluated empirically and the Hypotheses~\ref{hyp:ui_structural_information}--\ref{hyp:ctvbo} are tested on different experiments. For this purpose, the proposed modeling approach \gls{uitvbo} is compared to TV-GP-UCB\footnotemark by \textcite{Bogunovic_2016} using standard \gls{tvbo} as well as the proposed method \gls{ctvbo}, both with and without data selection. This results in the different variations summarized in Table \ref{tab:models}.
+
+\bgroup
+\def\arraystretch{1.2}
+\begin{table}[h]
+\begin{center}
+\begin{tabular}{ c || c | c | c}
+ & \textbf{\gls{tvbo}} & \textbf{Data}& \textbf{Forgetting}\vspace{-0.1cm}\\
+\textbf{Variation} & \textbf{Algorithm} & \textbf{Selection} & \textbf{Strategy}\\\hline\hline
+\textbf{\gls{uitvbo}} & standard \gls{tvbo} & -- & \gls{ui} \\\hline
+\textbf{B \gls{uitvbo}} & standard \gls{tvbo} & binning & \gls{ui} \\\hline
+\textbf{TV-GP-UCB}\footnotemark[\value{footnote}] & standard \gls{tvbo} & -- & \gls{b2p} \\\hline
+\textbf{SW TV-GP-UCB}\footnotemark[\value{footnote}] & standard \gls{tvbo} & sliding window & \gls{b2p} \\\hline
+\textbf{C-\gls{uitvbo}} & \gls{ctvbo} & -- & \gls{ui} \\\hline
+\textbf{B C-\gls{uitvbo}} & \gls{ctvbo} & binning & \gls{ui} \\\hline
+\textbf{C-TV-GP-UCB}\footnotemark[\value{footnote}] & \gls{ctvbo} & -- & \gls{b2p} \\\hline
+\textbf{SW C-TV-GP-UCB}\footnotemark[\value{footnote}] & \gls{ctvbo} & sliding window & \gls{b2p} \\\hline
+\end{tabular}
+\end{center}
+\caption[Evaluated model variations.]{Variations which are evaluated in this chapter. Standard \gls{tvbo} denotes Algorithm~\ref{algo:tvbo}, \gls{ctvbo} denotes the proposed method in Algorithm~\ref{algo:constrained_tvbo}. The data selection strategies are as discussed in \Cref{sec:data_selection}.}
+\label{tab:models}
+\end{table}
+\egroup
+\footnotetext{Note that only the \textit{model} as introduced by \textcite{Bogunovic_2016} will be used for comparison, \underline{not} the \gls{ucb} algorithm.}
+
+Furthermore, to test Hypothesis~\ref{hyp:ui_structural_information}, each experiment is performed with a well-defined and an optimistic prior mean.
+An optimistic prior mean investigates the robustness of the variations regarding a misspecified prior distribution. Such robustness is desirable, especially regarding real-world applications where the mean of an objective function changes over time.
+
+The acquisition function throughout this chapter will be \gls{lcb} as
+\begin{equation}
+    \alpha(\mathbf{x}, t+1|\mathcal{D}) = \mu_{t+1}(\mathbf{x}) - \sqrt{\beta_{t+1}}\, \sigma_{t+1}(\mathbf{x})
+    \label{eq:results_lcb}
+\end{equation}
+with a constant exploration-exploitation factor of $\beta_{t+1}=2$. Different choices for $\beta_{t+1}$ may be appropriate for different variations in Table~\ref{tab:models}, however, the exploration-exploitation also depends on the forgetting factors. Fixing the acquisition function increases the emphasis on the modeling approaches and algorithms.
+
+The variations are implemented in Python and are based on PyTorch \cite{Paszke_2019} using GPyTorch \cite{Gardner_2018} for modeling the \gls{gp} and BoTorch \cite{Balandat_2020} for optimizing the acquisition function.
+
+\section{Synthetic Experiments}
+\label{sec:synthetic_experiments}
+
+To compare the different variations in Table~\ref{tab:models} different synthetic experiments are performed. First, the variations are compared qualitatively in the within-model as well as out-of-model comparison. These investigate the behavior of the proposed methods if all assumptions are satisfied by the objective function.
+Then quantitative comparisons are conducted using benchmarks similar to those of \textcite{Renganathan_2020}.
+The comparisons are performed both one-dimensional ($D=1$) and two-dimensional ($D=2$). For the method \gls{ctvbo} $\delta=1.5$ \eqref{eq:delta} is chosen and for $D=1$ the number of \glspl{vop} per dimension is set to $N_{v/D}=10$, for $D=2$ to $N_{v/D}=5$. For the data selection strategies, the number of bins per dimension is set to $20$, and the sliding window size is set to $W=30$ for $D=1$ and $W=80$ for $D=2$. The sliding window sizes were chosen to account for the same amount of training data as binning since approximately $80$ bins were filled in the two-dimensional experiments. The same number of training points allows for a straightforward comparison.
+
+\subsection{Within-Model Comparison}
+\label{sec:within-model}
+
+The first experiments conducted are within-model comparisons motivated by \textcite{Hennig_2012} and previous work by \textcite{Bogunovic_2016} where the objective function is generated according to the model assumptions at hand. In this thesis, the assumptions are the objective function staying convex through time captured by the proposed method \gls{ctvbo} as well as temporal change according to a Wiener process as embedded in \gls{uitvbo}. For the within-model comparisons, the hyperparameters are known a-priori to the algorithm. Therefore no hyperparameter optimization is performed.
+
+\begin{algorithm}[h]
+\centering
+\caption{Generate Within-Model Objective Function}
+\begin{algorithmic}[1]
+\Require prior $\mathcal{GP}(m(\mathbf{x}), k_S(\mathbf{x},\mathbf{x}') \otimes k_T(t, t'))$ and hyperparameter; feasible set ${\mathcal{X}\in \R^D}$; number of \glspl{vop} per dimension $N_{v/D}$, truncation bounds $a(\cdot), b(\cdot)$
+\State Sample $f_0$ from constrained prior distribution \Comment{Appendix \ref{apx:sampling_from_prior}}
+\State $f = [f_0]$
+\For{$t = 0, 1, \dots, T$}
+    \State Learn previous sample $f_t$
+    \State Place \glspl{vop} at time steps $t$ and $t+1$
+    \State Sample $f_{t+1}$ from the posterior at $t+1$
+    \State $f = [f;f_{t+1}]$
+\EndFor
+\Ensure $f$
+\end{algorithmic}
+\label{algo:within_model_comparison}
+\end{algorithm}
+
+Usually, the within-model objective function is generated by sampling from the \gls{gp} prior distribution with fixed hyperparameters. However, the number of \glspl{vop} needed to span across the whole domain $\mathcal{X}\times\mathcal{T}$ to generate one sample is too high as discussed in \Cref{sec:model_convex_functions}. Therefore, the objective function is generated in an iterative fashion according to Algorithm~\ref{algo:within_model_comparison} with the temporal kernel $k_{T,wp}$ and a fixed \gls{ui} forgetting factor $\hat{\sigma}_w^2$. The generated output is a time-varying objective function satisfying Assumption~\ref{ass:prior_knowledge_convex} and the temporal change of a Wiener process which are assumptions relevant for real-world applications.
+
+For the one-dimensional within-model objective functions, the samples at each time step are generated on the feasible set $\mathcal{X} = [-5, 9]$ with a length scale $\boldsymbol\Lambda_{11} = 3$, output variance of $\sigma_k^2 = 1$, and a prior mean of $m(\mathbf{x}) = \mathbf{0}$. Furthermore, the \gls{ui} forgetting factor is set to $\hat{\sigma}_w^2=0.03$, the number of \glspl{vop} per dimension is set to $N_{v/D}=10$, and the bounding functions are $a(\mathbf{X}_v)=0$ and $b(\mathbf{X}_v)=1$. For creating the two-dimensional within-model objective functions, the same settings are chosen except with $N_{v/D}=6$, the feasible set as $\mathcal{X}=[-7,7]^2$, and $\boldsymbol\Lambda_{11} =\boldsymbol\Lambda_{22} = 3$.
+
+The generated objective functions are not \emph{within-model} for the variations using \gls{b2p} forgetting which has to be accounted for. The \gls{ui} forgetting factor $\hat{\sigma}_w^2$ implies the increase in variance after one time step. This is also implied by $\epsilon$ in the Markov chain model of TV-GP-UCB in \eqref{eq:markov_chain} as shown in Appendix \ref{apx:forgetting_factors}. Therefore, $\epsilon$ is set to be $\epsilon=\hat{\sigma}_w^2$.
+Furthermore, the Wiener process kernel $k_{T,wp}$ causes the output variance of the composite kernel to increase with $\hat{\sigma}_w^2$ at each time step (see \eqref{eq:sigma_w_hat}). Therefore, to allow a comparison, at each time step, the output variance of the models using \gls{b2p} forgetting is also increased by $\hat{\sigma}_w^2$ as
+\begin{equation}
+    \sigma_{k,t}^2 = \sigma_{k}^2 + \hat{\sigma}_w^2 \cdot t \text{ (for \gls{b2p} forgetting)}
+\end{equation}
+with $\sigma_{k,t}^2$ as the output variance at time step $t$.
+Nevertheless, caution is needed when quantitatively comparing the forgetting strategies. Here, the synthetic examples in \Cref{sec:1D,sec:2D} are more appropriate. However, qualitative trends between the forgetting strategies can be highlighted from the within-model comparisons.
+
+The variations of the Table~\ref{tab:models} were evaluated on five different objective functions for $D=1$ and $D=2$ generated according to Algorithm~\ref{algo:within_model_comparison}. Five simulations are performed on each objective function using different initializations of $N=15$ initial training points. The initializations were consistent for each variation. Figure~\ref{fig:WMC_cumulative_regret_1D} shows the results for the one-dimensional within-model comparison.
+\begin{figure}[h]
+    \centering
+    \input{thesis/figures/pgf_figures/WMC_cumulative_regret_1D.pgf}
+    \caption[Results of the one-dimensional within model comparison.]{Results for the one-dimensional within-model comparison. The white circles represent the mean of each variation. The darker shades show the performance with a well-defined mean, while the lighter shades show the performance with an optimistic mean. \gls{ctvbo} significantly reduces the regret and the sensitivity regarding an optimistic prior.}
+    \label{fig:WMC_cumulative_regret_1D}
+\end{figure}
+
+The dashed line indicates the regret obtained if the minimum of the posterior mean after the initialization had been chosen as the query for the whole time horizon. Figure~\ref{fig:WMC_cumulative_regret_1D} shows that all variations, except SW TV-GP-UCB with an optimistic prior mean, fall below this regret. It indicates the sliding window of $30$ being too small for the chosen forgetting factor. However, it can be stated that regardless of the forgetting method and algorithm, it is worth considering the time-varying nature of the objective function.
+The proposed method \gls{ctvbo} reduces the regret for both \gls{b2p} forgetting and \gls{ui} forgetting compared to normal \gls{tvbo}. 
+
+Furthermore, by taking into account the prior knowledge, the variance is reduced. Additionally, the proposed modeling approach \gls{uitvbo} shows only minor differences when changing the prior mean. In contrast, the variations with \gls{b2p} forgetting strongly respond to an optimistic mean with an increased exploratory behavior and thus higher regret. This behavior was expected and stated in  Hypothesis~\ref{hyp:ui_structural_information}. Nevertheless, \gls{ctvbo} restricts the explorative behavior and, therefore, reduces the effect of the optimistic prior compared to standard \gls{tvbo}.
+
+The data selection strategies consistently result in worse regret compared to the variations using all queried data. This behavior is expected as the posterior at each time step is only an approximation. However, it should be noted that the binning approach for \gls{ui} forgetting has only a diminutive impact on regret and is, therefore, a suitable data selection strategy for \gls{ui} forgetting. For the sliding window approach for \gls{b2p} forgetting, a larger window size $W$ could improve the regret because the temporal correlations after $30$ time steps are still significant using a forgetting factor of $\epsilon =0.03$. Combining the proposed methods \gls{uitvbo} and \gls{ctvbo} results in the best performance in terms of cumulative regret, both for a well-defined and optimistic prior mean.
+
+In the results of the two-dimensional within-model comparisons in Figure~\ref{fig:WMC_cumulative_regret_2D}, similar trends can be observed, however, they are not as distinct as in the one-dimensional case. Again, all variations perform better compared to only choosing the minimum of the posterior mean after the initialization. Furthermore, it can be observed that also in the two-dimensional case, the method \gls{ctvbo} reduces the regret as well as its variance compared to standard \gls{tvbo}, which further strengthens Hypothesis~\ref{hyp:ctvbo}. 
+\begin{figure}[h]
+    \centering
+    \input{thesis/figures/pgf_figures/WMC_cumulative_regret_2D.pgf}
+    \caption[Results of the two-dimensional within model comparison.]{Results for the two-dimensional within-model comparison. It shows lower regret and a smaller regret variance for \gls{ctvbo} and similar regret for \gls{b2p} and \gls{ui} forgetting. The formatting is as in Figure~\ref{fig:WMC_cumulative_regret_1D}.}
+    \label{fig:WMC_cumulative_regret_2D}
+\end{figure}
+
+The sensitivity of the forgetting strategies to a shifted prior mean are the same for \gls{ctvbo} as in the one-dimensional case. \gls{ui} forgetting reacts only slightly to the shifted mean compared to \gls{b2p} forgetting. Contrary to expectations, the sensitivity to a shifted mean is not evident for \gls{b2p} forgetting with the standard \gls{tvbo} algorithm. Here, the regret even decreases and thus weakens Hypothesis~\ref{hyp:ui_structural_information}. One possible explanation is that the exploration behavior for $\mu_0=0$ was too limited, resulting in the two variations, TV-GP-UCB and SW TV-GP-UCB, exploiting too much and not capturing the change in the objective function sufficiently. This yields in higher regret. The explorative behavior increases again through the optimistic prior in $\mu_0=-2$, and changes in the objective function can be tracked, thus reducing the regret. This assumption is supported by Figure~\ref{fig:WMC_cum_regret_different_mean}. 
+\begin{figure}[h!]
+    \centering
+    \input{thesis/figures/pgf_figures/WMC_cumulative_regret_2D_different_mean.pgf}
+    \caption[Influence of different optimistic means on \gls{b2p} forgetting in the two-dimensional within-model comparison.]{Influence of different optimistic means on \gls{b2p} forgetting in the two-dimensional within-model comparison.}
+    \label{fig:WMC_cum_regret_different_mean}
+\end{figure}
+
+Here, additional simulations with an optimistic prior mean of $\mu_0=-4$ were performed, showing the high sensitivity of \gls{b2p} forgetting regarding the prior mean as in the one-dimensional within-model comparison.
+This high sensitivity can also complicate the tuning of hyperparameters since the exploration behavior depends not only on the forgetting factor and $\beta_{t+1}$ but also on the prior mean. If the mean changes, all parameters have to be readjusted to have a desirable exploration-exploitation trade-off.
+
+
+\subsection{Out-Of-Model Comparison}
+\label{sec:out_of_model}
+
+For the out-of-model comparison, the same models as in the previous \Cref{sec:within-model} are used, however the length scales are no longer known a-priori. Therefore, at each time step a hyperparameter optimization is performed. A prior on the length scales in form of a Gamma distribution $\boldsymbol\Lambda_{ii} \sim \mathcal{G}(\alpha,\beta)$ as by \textcite{Marco_2016} with the probability density function as
+\begin{equation}
+    p(x|\alpha,\beta) = \begin{cases}
+            \frac{\beta^\alpha}{\Gamma(\alpha)} \cdot x^{\alpha-1} \exp{\left(-\beta \cdot x\right)} \, ,& x > 0\\
+            0\, ,&x \leq 0
+        \end{cases}
+        \label{eq:gamma}
+\end{equation}
+with $\alpha = 11$ and $\beta = \frac{10}{3}$ is chosen. Furthermore, bounds on the length scales are chosen as $\boldsymbol\Lambda_{ii} \in [2,5]$. The other hyperparameter setting are identical to the within-model comparison in \Cref{sec:within-model}. Figure~\ref{fig:OOMC_cumulative_regret_1D} shows the results for the one-dimensional objective functions. All variations except SW TV-GP-UCB with an optimistic prior mean outperform exploiting the mean after the initialization. 
+
+Furthermore, applying \gls{ctvbo} to \gls{ui} forgetting with the proposed modeling approach \gls{uitvbo} results in the lowest regret. The variations using \gls{ui} forgetting are more robust to the change in prior mean compared to the variations using \gls{b2p} forgetting, supporting Hypothesis~\ref{hyp:ui_structural_information}. With a well-defined prior mean, \gls{b2p} and \gls{ui} forgetting show similar mean regret when using standard \gls{tvbo} as stated in Hypothesis~\ref{hyp:ui_good_mean}. However, the main deviation from the within-model comparisons is that \gls{b2p} forgetting with \gls{ctvbo} no longer shows an advantage compared to standard \gls{tvbo} if no data selection strategy is applied. A reason for this could be that the learned length scales result in a posterior, which is very flat, thus increasing the sampling radius around the optimum in the constrained case.
+\begin{figure}[h]
+    \centering
+    \input{thesis/figures/pgf_figures/OOMC_cumulative_regret_1D.pgf}
+    \caption[Results of the one-dimensional out-of-model comparison.]{Results for the one-dimensional out-of-model comparison. It shows lower regret and a smaller regret variance for \gls{ctvbo} using \gls{ui} forgetting. The formatting is as in Figure~\ref{fig:WMC_cumulative_regret_1D}.}
+    \label{fig:OOMC_cumulative_regret_1D}
+\end{figure}
+
+Figure~\ref{fig:OOMC_lengthscales_1D} shows the mean learned length scales over time. All variations learn length scales, which are greater than the true length scale of the objective function. This is expected, as the bounds on the second derivative of the objective functions where $\nicefrac{\partial^2 f_t}{\partial x^2} \in [0, 1]$. The objective functions are therefore very flat, and over-estimating the smoothness of the function is likely.
+\begin{figure}[h]
+    \centering
+    \input{thesis/figures/pgf_figures/OOMC_lengthscale_1D.pgf}
+    \caption[Learning the length scales in out-of-model comparison.]{Mean learned length scales of the out-of-model comparison. The dotted lines show the length scales learned with an optimistic prior mean whereas the solid lines show the length scales with a well-defined prior mean.}
+    \label{fig:OOMC_lengthscales_1D}
+\end{figure}
+
+The length scales of the \gls{b2p} forgetting  variations without data selection strategy quickly reach the upper bound of the length scale, both for \gls{ctvbo} and standard \gls{tvbo}. This is a direct consequence of the forgetting strategy, as the expectation of a measurement in \gls{b2p} forgetting propagates to the prior mean over time. This shows that learning the length scale can be more difficult by using \gls{b2p} forgetting since it tends to overestimate the length scale. For very steep functions, this can result in increased regret. In contrast, the length scale for \gls{ui} forgetting without data selection strategy only increases gradually. 
+
+For both, \gls{b2p} and \gls{ui} forgetting, using a data selection strategy results in a better estimate of the length scale as stale data is discarded and not considered in the hyperparameter optimization. However, this does not directly lead to a decrease in regret (Figure~\ref{fig:OOMC_cumulative_regret_1D}). The upper bound for the length scale could be increased to investigate this further.
+
+The results of the two-dimensional within-model comparisons are shown in Figure~\ref{fig:OOMC_cumulative_regret_2D}. Again, the combination of both proposed variations C-\gls{uitvbo} is the one with the lowest regret, even though the unconstrained \gls{b2p} forgetting methods are very similar.
+Here, the trend that constraining the posterior for \gls{b2p} forgetting can become problematic if the objective function is flat is even more evident.
+\begin{figure}[h]
+    \centering
+    \input{thesis/figures/pgf_figures/OOMC_cumulative_regret_2D.pgf}
+    \caption[Results of the two-dimensional out-of-model comparison.]{Results for the two-dimensional out-of-model comparison. \gls{ctvbo} using \gls{b2p} forgetting can result in higher regret for flat objective functions. The formatting is as in Figure~\ref{fig:WMC_cumulative_regret_1D}.}
+    \label{fig:OOMC_cumulative_regret_2D}
+\end{figure}
+
+The assumption of an increased sampling radius due to \gls{b2p} forgetting and \gls{ctvbo} is confirmed when considering the distribution of the queries taken in the simulations in Figure~\ref{fig:OOMC_sample_dsitribution}. It shows that \gls{ctvbo} almost always prevents sampling at the bounds, which was one of the main motivations. Especially, it avoids sampling at the corners of the feasible set as observed for the unconstrained variations in the top row. For a convex function with the optimum within the feasible set, sampling at the corners will likely yield in high regret.
+\begin{figure}[h]
+    \centering
+    \import{thesis/figures/pgf\string_figures/}{OOMC\string_sample\string_distribution.pgf}
+    \caption[Sample distribution of the two-dimensional out-of-model comparison.]{Sample distribution of the two-dimensional out-of-model comparison for the optimistic mean $\mu_0=-2$. \gls{ctvbo} reduces global exploration.}
+    \label{fig:OOMC_sample_dsitribution}
+\end{figure}
+
+However, for \gls{b2p} forgetting, constraining the posterior comes at the cost of an increased sampling radius around the predicted optimum. In contrast, unconstrained \gls{b2p} forgetting samples more often at the boundaries of the feasible set. However, since the objective functions are very flat due to the bounding functions, this behavior does not increase the regret significantly. 
+
+In other scenarios, with a larger $b(\mathbf{X}_v)$, this frequent sampling at the bounds can lead to significant increases in the regret. Also, in practical applications, this explorative behavior to the bounds should be limited. Unconstrained \gls{ui} forgetting also chooses queries at the bounds of the feasible set due to the ever-increasing variance. The constraints of \gls{ctvbo} limit the increase in variance and thus this explorative behavior. In contrast to \gls{b2p} forgetting, the sampling radius is not significantly increased resulting in the low regret shown in Figure~\ref{fig:OOMC_cumulative_regret_2D}.
+
+\subsection{1-D Moving Parabola}
+\label{sec:1D}
+
+The objective functions for the within-model and out-of-model comparison were generated according to the model assumption of temporal change according to a Wiener process and allowed only for a qualitative comparison. For a quantitative comparison between the variations in Table \ref{tab:models}, benchmarks with one and two dimensions inspired by the test functions in \textcite{Renganathan_2020} where designed. They satisfy Assumption~\ref{ass:prior_knowledge_convex}, and therefore, \gls{ctvbo} with convexity constraints can be applied.
+
+The one dimensional benchmark is a moving parabola with the objective function as
+\begin{equation}
+    f_t(x) = \begin{cases}
+        g_{\text{1D}}(x,t) \, ,& t < 140\\
+        g_{\text{1D}}(x,t=50) \, ,&140 \leq t \leq 225 \\
+        g_{\text{1D}}(x,t=-50)\, ,&t > 225
+        \end{cases}
+        \label{eq:1d_parabola}
+\end{equation}
+with
+\begin{align}
+    g_{\text{1D}}(x,t) =& a_1 (a_2 \cdot x + a_3 + a_4 \cdot t)^2 \nonumber\\&
+    + 2(a_2 \cdot x \sin(a_5\cdot t)) - \cos(a_5\cdot t)^2 + b.
+\end{align}
+The coefficients $a_1$ to $a_5$ as well as $b$ are displayed in Table \ref{tab:coefficients_1D}.
+\bgroup
+\def\arraystretch{1.2}
+\begin{table}[h]
+    \centering
+    \begin{tabular}{c||c c c c c c}
+        \textbf{Coefficient} & $a_1$ &$a_2$&$a_3$&$a_4$&$a_5$&$b$ \\\hline\hline
+        \textbf{Value} & $4$ &$0.25$&$-0.5$&$-0.01$&$0.1$&$5$
+    \end{tabular}
+    \caption{Coefficients for the 1-D moving parabola.}
+    \label{tab:coefficients_1D}
+\end{table}
+\egroup
+
+The feasible set for optimizing the acquisition function is defined as $\mathcal{X}=[-5, 9]$ and the time horizon is $T=300$. The resulting objective function with the trajectory of the optimizer is displayed in Figure~\ref{fig:Parabola1D}.
+It consists of a part with gradual change for $t<140$ and two sudden changes at $t=140$ and $t=225$.
+
+The variations in Table~\ref{tab:models} were evaluated on five different runs with different, but for each variant consistent, initializations of $N=15$ data points. The initial training data was normalized to zero mean and a standard deviation of one. Therefore, the prior mean was set to $\mu_0=0$, and the output variance was fixed to $\sigma_k^2=1$. Each subsequent data point was normalized using the mean and standard deviation of the initial data set. For the length scale a hyper prior of $\boldsymbol\Lambda_{11} \sim \mathcal{G}(15, \nicefrac{10}{3})$ \eqref{eq:gamma} was chosen. Furthermore, an interval for the length scale was set to $\boldsymbol\Lambda_{11} \in [2, 7]$. The bounding functions were defined as $a(\mathbf{X}_v)=0$ and $b(\mathbf{X}_v)=4$.
+\begin{figure}[h]
+    \centering
+    \input{thesis/figures/pgf_figures/Parabola1D_ohne.pgf}
+    \caption[Objective function of the one-dimensional moving parabola.]{Objective function in \eqref{eq:1d_parabola} of the one-dimensional moving parabola.}
+    \label{fig:Parabola1D}
+\end{figure}
+
+For the variations without data selection strategy, a sensitivity analysis regarding the forgetting factor was performed and the results are shown in Figure~\ref{fig:Parabola1D_forgetting_factors}.
+
+The forgetting factor for \gls{b2p} forgetting is only defined as $\epsilon \in (0, 1)$, whereas the \gls{ui} forgetting factor is defined as $\hat{\sigma}_w^2 \in (0, \infty)$. Therefore, the significantly higher regret for \gls{b2p} forgetting at high forgetting factors compared to \gls{ui} forgetting is expected. Figure~\ref{fig:Parabola1D_forgetting_factors} shows that for \gls{b2p} forgetting, constraining the \gls{gp} posterior by using the proposed method \gls{ctvbo} reduces the regret for forgetting factors up to $\epsilon = 0.0215$. However, for higher forgetting factors, constraining the posterior increases the regret. This is a result of \gls{b2p} forgetting. As the constraints limit the exploration of the acquisition function, queries around the predicted optimum are chosen. However, since the optimum is never chosen directly due to the \gls{lcb} acquisition function, the expectation of the optimal function value $\EX[f_t(\mathbf{\hat{x}}_t^*)]$ propagates towards the prior mean. $\mu_0 > \EX[f_t(\mathbf{\hat{x}}_t^*)]$ suggests that the resulting posterior becomes more level over time. Therefore, the sampling radius around the predicted optimum of the acquisition function is increased due to the constant $\beta_{t+1}$, resulting in increased regret compared to the unconstrained case as in \Cref{sec:out_of_model}.
+The exception for $\epsilon = 0.3$ seems to be an outlier, where the objective function is constructed in such a way that the regret with \gls{b2p} forgetting and \gls{ctvbo} is significantly reduced for this specific forgetting factor.
+\begin{figure}[h!]
+    \centering
+    \input{thesis/figures/pgf_figures/Parabola1D_choose_forgetting_factor.pgf}
+    \caption[Sensitivity analysis of the forgetting factors of \gls{ui} and \gls{b2p} forgetting.]{Sensitivity analysis of the \gls{ui} and \gls{b2p} forgetting factors on the dynamic cumulative regret with the example of the moving parabola. The means (white markers) are compared in the graph at the bottom. \gls{ctvbo} with \gls{ui} forgetting results in the lowest regret for almost all forgetting factors.}
+    \label{fig:Parabola1D_forgetting_factors}
+\end{figure}
+
+For \gls{ui} forgetting, applying \gls{ctvbo} reduces the regret for all forgetting factors as $\EX[f_t(\mathbf{\hat{x}}_t^*]$ does not propagate towards the prior mean supporting  Hypothesis~\ref{hyp:ctvbo}. Furthermore, \gls{ctvbo} reduces the regret's variance. Comparing the mean regret of \gls{ui} forgetting and \gls{b2p} forgetting, the bottom graph of Figure~\ref{fig:Parabola1D_forgetting_factors} shows that the combination of the proposed methods results in the lowest regret, expect for $\epsilon=\hat{\sigma}_w^2 = 0.005$ and $\epsilon=\hat{\sigma}_w^2 = 0.3$. Furthermore, the regret of \gls{ui} forgetting and \gls{b2p} forgetting at low forgetting factors is very similar, supporting  Hypothesis~\ref{hyp:ui_good_mean}.
+
+To further test Hypothesis~\ref{hyp:ui_structural_information}, the forgetting factors with the lowest mean regret in the sensitivity analysis in Figure~\ref{fig:Parabola1D_forgetting_factors} are listed in Table~\ref{tab:1d} and further compared by also considering an optimistic prior mean of $\mu_0 = -1$. These trajectories are shown in Appendix~\ref{apx:trajectories_1D_parabola}.
+\bgroup
+\def\arraystretch{1.2}
+\begin{table}[h]
+\begin{center}
+\begin{tabular}{ c || c}
+\textbf{Variation} & \textbf{Forgetting Factor $\epsilon$ / $\hat{\sigma}_w^2$} \\\hline\hline
+\gls{uitvbo}, B \gls{uitvbo}& $0.01$\\
+TV-GP-UCB, SW TV-GP-UCB & $0.028$\\
+C-\gls{uitvbo}, B C-\gls{uitvbo} & $0.009$ \\ 
+C-TV-GP-UCB, SW C-TV-GP-UCB & $0.009$
+\end{tabular}
+\end{center}
+\caption{Forgetting factors with the lowest regret in the sensitivity analysis.}
+\label{tab:1d}
+\end{table}
+\egroup
+
+For the variations with data selection strategy, the same forgetting factors are chosen as without data selection strategy. The results of the direct comparison the well-defined prior mean $\mu_0=0$ and the optimistic prior mean $\mu_0 = -1$ are shown in Figure~\ref{fig:Parabola1D_cumulative_regret}.
+\begin{figure}[h!]
+    \centering
+    \input{thesis/figures/pgf_figures/Parabola_1D_cumulative_regret.pgf}
+    \caption[Results of the one-dimensional moving parabola.]{Results of the one-dimensional moving parabola. \gls{ctvbo} results in lower regret and \gls{ui} forgetting shows lower sensitivity to a shifted mean. The formatting is as in Figure~\ref{fig:WMC_cumulative_regret_1D}.}
+    \label{fig:Parabola1D_cumulative_regret}
+\end{figure}
+Again, it is apparent that taking into account the temporal change in the objective function is advisable in terms of regret as all variations outperform exploiting the posterior mean after the initialization.
+
+As in previous experiments, \gls{b2p} forgetting shows a higher sensitivity to the optimistic mean with an increased mean regret supporting Hypothesis~\ref{hyp:ui_structural_information}. The variation with the lowest mean regret independent of the prior mean is the variation combining both proposed methods, \gls{uitvbo} and \gls{ctvbo}.
+
+\newpage
+\subsection{2-D Moving Parabola}
+\label{sec:2D}
+
+Based on similar concepts, the one-dimensional moving parabola is extended to two dimensions. The objective function for the two-dimensional moving parabola is
+\begin{equation}
+    f_t(\mathbf{x}=\{x_1,x_2\}) = \begin{cases}
+        g_{\text{2D}}(\mathbf{x},t) \, ,& t < 140\\
+        a_1 \left( (a_2 \cdot x_1 - 2a_2)^2 + (a_2 \cdot x_2 - 2a_2)^2 \right) +b \, ,&t \ge 140 \\
+        \end{cases}
+\end{equation}
+with
+\begin{align}
+    g_{\text{2D}}(\mathbf{x}=\{x_1,x_2\},t) =& a_1 \left( (a_2 \cdot x_1)^2 + (a_2 \cdot x_2 - 0.5\sin(a_5\cdot t))^2 \right) \nonumber \\
+    &+ 2(a_2 \cdot x_1 \sin(a_5\cdot t)) - \cos(a_5\cdot t)^2 +b.
+\end{align}
+Again, it consists of a part with gradual change for $t<140$ and a subsequent sudden change at $t=140$. The coefficients $a_1$ to $a_5$ and $b$ are the same as for the one-dimensional moving parabola in \Cref{sec:1D} and are displayed in Table~\ref{tab:coefficients_1D}. Since the factors of the objective function are identical, the temporal change is very similar. Therefore, the forgetting factors in Table~\ref{tab:1d} are used to evaluate the variations. The feasible set for the two-dimensional moving parabola was $\mathcal{X}=[-7, 7]^2$, Gamma hyperpriors were used for the length scales as $\boldsymbol\Lambda_{11}, \boldsymbol\Lambda_{22} \sim \mathcal{G}(15, \nicefrac{10}{3})$ \eqref{eq:gamma} with bounds $\boldsymbol\Lambda_{11},\boldsymbol\Lambda_{22} \in [2, 7]$, and the bounding functions were defined as $a(\mathbf{X}_v)=0$ and $b(\mathbf{X}_v)=4$. As in the one-dimensional moving parabola benchmark, scaling based on the initial set was applied. The results with firstly a well-defined prior mean and secondly an optimistic prior mean are shown in Figure~\ref{fig:Parabola2D_cumulative_regret}.
+\begin{figure}[h]
+    \centering
+    \input{thesis/figures/pgf_figures/Parabola_2D_cumulative_regret.pgf}
+    \caption[Results of the two-dimensional moving parabola.]{Results of the two-dimensional moving parabola. The white circles represent the mean of each variation. The darker shades show the performance with a well-defined mean, while the lighter shades show the performance with an optimistic mean.}
+    \label{fig:Parabola2D_cumulative_regret}
+\end{figure}
+
+It shows the same trends as in the one-dimensional moving parabola: \gls{b2p} shows a higher sensitivity to the shifted mean (Hypothesis~\ref{hyp:ui_structural_information}), \gls{b2p} and \gls{ui} forgetting have similar performance in terms of regret for with a well-defined prior mean (Hypothesis~\ref{hyp:ui_good_mean}), and \gls{ctvbo} reduces the regret as well as its variance compared to standard \gls{tvbo} (Hypothesis~\ref{hyp:ctvbo}). The best performing variation in terms of cumulative regret is again the combination of the proposed methods \gls{uitvbo} and \gls{ctvbo}.
+
+However, it is interesting to note that similar to the two-dimensional simulations of within and out-of-model comparison, the differences in regret between standard \gls{tvbo} and \gls{ctvbo} are smaller than in the one-dimensional examples. One reason for this could be the smaller number of \glspl{vop} per dimension $N_{v/D}$ chosen for computational feasibility.
+
+\section{LQR Problem of an Inverted Pendulum}
+\label{sec:LQR}
+
+As the last experiment, the variations in Table \ref{tab:models} are applied to a real-world problem -- the \gls{lqr} problem of an inverted pendulum. The \gls{lqr} problem is a classic problem in fundamental control theory controlling a linear dynamical system by minimizing a quadratic cost function $J$. It therefore satisfies Assumption \ref{ass:prior_knowledge_convex} with the objective function as $f_t \coloneqq J$ making it a suitable application to benchmark the proposed methods. In the following, $t$ denotes the time step of the \gls{tvbo} algorithm, whereas $\hat{t}$ denotes the time steps of the linear system. For an infinite horizon and discrete time steps the \gls{lqr} problem is formalized as the optimization problem
+\begin{align}
+    \min_{\mathbf{u}_{\hat{t}}(\cdot)}\, &J=\lim_{\hat{T} \to \infty} \EX \left[ \sum_{{\hat{t}}=0}^{\hat{T}-1} \mathbf{x}_{\hat{t}}^T \mathbf{Q}\mathbf{x}_{\hat{t}} +  \mathbf{u}_{\hat{t}}^T \mathbf{R}\mathbf{u}_{\hat{t}} \right] \label{eq:lqr_cost}\\
+    &\text{s.t. }\mathbf{x}_{\hat{t}+1} = \mathbf{A}_k\mathbf{x}_{\hat{t}} + \mathbf{B}_k\mathbf{u}_{\hat{t}} + \mathbf{w}_{\hat{t}} \label{eq:lqr_system}
+\end{align}
+with $\mathbf{x}_{\hat{t}} \in \R^D$ as the state, $\mathbf{u}_{\hat{t}} \in \R^P$ as the input, and $\mathbf{w}_{\hat{t}} \sim \mathcal{N}(\mathbf{0}, \bar{\sigma}_n^2 \mathbf{I})$ as iid Gaussian noise at each time step $\hat{t}$. $\mathbf{Q}$ and $\mathbf{R}$ in \eqref{eq:lqr_cost} are positive-definite weighting matrices. Furthermore, \eqref{eq:lqr_system} describes a time-discrete linear model with $\mathbf{A}_k$ as the state matrix and $\mathbf{B}_k$ as the input matrix. If the linear model is known, the optimal feedback controller as
+\begin{equation}
+    \mathbf{u}_{\hat{t}} = \mathbf{K}^* \, \mathbf{x}_{\hat{t}}
+\end{equation}
+with the optimal controller gain $\mathbf{K}^* \in \R^{P \times D}$ can be calculated by solving the discrete algebraic Ricatti equation
+\begin{equation}
+    \mathbf{P} = \mathbf{A}_k^T \mathbf{P} \mathbf{A}- \mathbf{A}_k^T \mathbf{P} \mathbf{B}_k \left(\mathbf{R}+\mathbf{B}_k^T \mathbf{P} \mathbf{B}_k\right)^{-1} \mathbf{B}_k^T \mathbf{P} \mathbf{A}_k+\mathbf{Q}
+\end{equation}
+and setting
+\begin{equation}
+    \mathbf{K}^* = -\left(\mathbf{R}+\mathbf{B}_k^T\mathbf{P}\mathbf{B}_k\right)^{-1} \mathbf{B}_k^T\mathbf{P}\mathbf{A}_k.
+    \label{eq:optimal_controller}
+\end{equation}
+As mentioned, the system at consideration is the inverted pendulum. A pendulum is attached to a horizontally moving cart as shown in Figure~\ref{fig:inverted_pendulum}.
+\begin{figure}[h]
+   \centering
+   \hspace{1cm}
+   \import{thesis/figures/pdf_figures/}{Zeichnung.pdf_tex}
+ \caption[Inverted pendulum.]{Inverted pendulum with parameters and state variables.}
+ \label{fig:inverted_pendulum}
+\end{figure}
+
+\newpage
+The goal of the \gls{lqr} problem is to find the optimal controller stabilizing the unstable upper equilibrium point
+\begin{equation}
+    x = 0,\, \dot{x} = 0,\, \varphi = 0,\, \dot{\varphi} = 0
+    \label{eq:equi}
+\end{equation}
+and minimizing the costs in \eqref{eq:lqr_cost}.
+
+Since the pendulum introduces trigonometric functions into the force balance equations, the inverted pendulum is non-linear. The non-linear system equation for the angular acceleration $\ddot{\varphi}$ is
+\begin{equation}
+    \ddot{\varphi}=\frac{1}{2}\frac{m_p g l}{J_d} \cdot \sin(\varphi)-\frac{1}{2}\frac{m_p l}{J_d}\cdot \cos(\varphi)\cdot\ddot{x}-\frac{\mu_p}{J_d}\cdot\dot{\varphi}
+    \label{eq:nicht_eingesetzt}
+\end{equation}
+with $m_p$ as the mass, $J_d$ as the moment of inertia, and $l$ as the length of the pendulum. Furthermore, $\mu_p$ denotes the fiction in the bearing as shown in Figure~\ref{fig:inverted_pendulum}.
+The control variable is the velocity of the cart as $u \coloneqq \dot{x}_{sp}$ modeled as a first-order lag transfer function resulting in the differential equation for the acceleration as
+\begin{equation}
+    \ddot{x}= \frac{1}{T_1}(K_u\cdot \dot{x}_{sp}-\dot{x})=\frac{1}{T_1}(K_u \cdot u-\dot{x}).
+    \label{eq:pt1}
+\end{equation}
+Substituting \eqref{eq:pt1} into \eqref{eq:nicht_eingesetzt} yields
+\begin{equation}
+    \ddot{\varphi}=\frac{1}{2}\frac{m_p g l}{J_d} \cdot \sin(\varphi)-\frac{1}{2}\frac{m_p l}{J_d} \cdot \cos(\varphi) \cdot \frac{1}{T_1}(K_u\cdot u-\dot{x})-\frac{\mu_p}{J_d}\cdot\dot{\varphi}.
+    \label{eq:phiacc}
+\end{equation}
+The equations \eqref{eq:pt1} and \eqref{eq:phiacc} build the non-linear state space of the system. As the \gls{lqr} problem requires a linear model, the non-linear system is linearized around the upper equilibrium points in \eqref{eq:equi} yielding in a linear continuous state space model as
+\begin{equation}
+    \dot{\mathbf{x}} = \mathbf{A} \mathbf{x} + \mathbf{B} u
+    \label{eq:cont_state_space}
+\end{equation}
+with $\mathbf{x} = [x, \dot{x}, \varphi, \dot{\varphi}]^T$ as the state vector. The state matrix and input matrix are 
+\begin{equation}
+    \mathbf{A} = \left[\begin{array}{cccc}
+         0 & 1 & 0 & 0 \\
+         0 & -\frac{1}{T_1} & 0 & 0\\
+         0 & 0 & 0 & 1\\
+         0 & \frac{1}{2}\frac{m_p l}{J_d T_1} &
+     \frac{1}{2} \frac{m_p l g}{J_d} & -\frac{\mu_p}{J_d}
+    \end{array} \right], \quad \mathbf{B} = \left[\begin{array}{c}
+    0 \\
+    \frac{K_u}{T_1} \\
+    0 \\
+    -\frac{1}{2}\frac{m_p l}{J_d}\frac{K_u}{T_1}
+    \end{array} \right].
+\end{equation}
+The continuous state space model in \eqref{eq:cont_state_space} is discretized with zero-order hold and a sampling interval of $T_s=0.02\si{\second}$ yielding in a time-invariant discrete state space model as in \eqref{eq:lqr_system}. 
+The parameter of the system are shown in Table~\ref{tab:params_lqr}.
+\bgroup
+\def\arraystretch{1.2}
+\begin{table}[h]
+    \centering
+    \begin{tabular}{c||c c c c c c }
+        \textbf{Param.} & $m_p$ &$J_d$&$l$&$\mu_p \,|\, \mu_{p,0}$&$K_u$ & $T_1$ \\\hline\hline
+        \textbf{Value} & $0.0804\si{\kilogram}$ &$0,5813\cdot 10^{-3}\si{\kilogram\meter}^2$&$0.147\si{\meter}$&$2.2\cdot10^{-3}\si{\newton\meter\second}$&$1$ & $1\si{\second}$
+    \end{tabular}
+    \caption{Parameters of the inverted pendulum.}
+    \label{tab:params_lqr}
+\end{table}
+\egroup
+
+The algorithms considered in this thesis are designed for time-varying objective functions. Therefore, the friction in the bearing $\mu_p$ is assumed to be time-varying as
+\begin{equation}
+    \mu_p(t) = \begin{cases}
+        \mu_{p,0} \, ,& t < 50 \\
+        \mu_{p,0}+\mu_{p,0} \cdot \left(-1.5 \cdot\cos\left(\frac{\pi}{50}(t-50)\right) + 1.5 \right)  \, ,& 50 \leq t \leq 100 \\
+        3 \mu_{p,0} + \frac{1}{2}\mu_{p,0} \cdot \sin\left(-\frac{\pi}{100}t\right) \, ,& t > 100 \\
+        \end{cases}
+\end{equation}
+yielding a time-varying \gls{lqr} cost function $J_t$ with $\mathbf{K}_t^*$ as the optimal controller and $J_t^*$ as the optimal cost at time step $t$. Figure~\ref{fig:LQR_cost} shows the optimal cost over time normalized by the initial optimal cost $J_0^*$ with a standard deviation of the noise in the system as $\bar{\sigma}_n = 6\cdot10^{-4}$, a time horizon for the \gls{lqr} cost function of $\hat{T} = 20$, and the initial conditions as
+\begin{equation}
+    x_0 = 4\si{\meter},\, \dot{x}_0= 0\frac{\si{\meter}}{\si{\second}} ,\, \varphi_0 = 0.1 \si{\radian},\, \dot{\varphi}_0 = 0.1\frac{\si{\radian}}{\si{\second}}.
+    \label{eq:inital_conditions}
+\end{equation}
+Furthermore, the dashed line in Figure~\ref{fig:LQR_cost} shows the cost over time if the controller gain is kept constant over time as $\mathbf{K}_0^*$, not adjusting to the changing system dynamics. Although the system remains stable, the costs are significantly higher compared to the optimal cost trajectory.
+\begin{figure}[h]
+    \centering
+    \input{thesis/figures/pgf_figures/LQR_cost.pgf}
+    \caption[Increase in \gls{lqr} cost due to time-varying friction.]{Normalized optimal costs of the \gls{lqr} problem of an inverted pendulum with the optimal controller at each time step (solid black line) and the optimal controller from the time step $t=0$ (dashed gray line).}
+    \label{fig:LQR_cost}
+\end{figure}
+
+In the following, the variations in Table~\ref{tab:models} are benchmarked on this time-varying cost function without prior knowledge of the system dynamics and the controller gain $\mathbf{K}$ as the decision variable for the optimization. The controller gain $\mathbf{K}$ of the feedback controller has the dimensions $1\times4$ as 
+\begin{equation}
+    \mathbf{K} = [\theta_1,\theta_2,\theta_3,\theta_4].
+\end{equation}
+Since \gls{ctvbo} does not scale well in the dimensions (see Figure~\ref{fig:dims_vops}), the first two entries are always set to the optimal values $\theta_1^*,\theta_2^*$ calculated according to \eqref{eq:optimal_controller} and the black-box optimization is performed using $\theta_3$ and $\theta_4$ as degrees of freedom. The weighting matrices are set to $\mathbf{Q}=10\cdot\text{eye}(4)$ and $\mathbf{R} = 1$. To have accurate feedback about the cost, the simulations are performed using the linearized system, not the non-linear system. 
+
+The feasible set is $\mathcal{X}=[-50, -25]\times[-4, -2]$ considering only stable controllers and avoiding numerical issues. Furthermore, the feasible set is scaled using $[3, \nicefrac{1}{4}]$ to have similar spatial intervals in each dimension. Gamma hyperpriors are used for the length scales as $\boldsymbol\Lambda_{11}, \boldsymbol\Lambda_{22} \sim \mathcal{G}(6, \nicefrac{10}{3})$ \eqref{eq:gamma} with bounds $\boldsymbol\Lambda_{11},\boldsymbol\Lambda_{22} \in [0.5, 6]$. As the \gls{lqr} cost function is flat around the optimum, the  bounding functions for \gls{ctvbo} are defined as $a(\mathbf{X}_v)=0$ and $b(\mathbf{X}_v)=2$. Furthermore, the number of \glspl{vop} per dimension is set as $N_{v/D} = 4$ and $\delta =1.2$ \eqref{eq:delta}. As in the moving parabola experiments, the initial training data of $N=30$ data points is normalized to zero mean and a standard deviation of one. The forgetting factors were chosen as $\hat{\sigma}_w^2 = \epsilon = 0.03$. As the optimal cost $J_t^*$ increases after $t=50$ (Figure~\ref{fig:LQR_cost}), the initial prior mean will result in an optimistic prior mean over time.
+Therefore, it is expected that the variations using the proposed modeling approach with \gls{ui} forgetting will outperform the variations using \gls{b2p} forgetting as stated in Hypothesis~\ref{hyp:ui_structural_information}.
+
+Figure~\ref{fig:LQR_cumulative_regret} shows the results of five different but for each variant consistent initializations.
+\begin{figure}[h]
+    \centering
+    \input{thesis/figures/pgf_figures/LQR_regret.pgf}
+    \caption[Results of the \gls{lqr} problem of an inverted pendulum.]{Results of the \gls{lqr} problem of an inverted pendulum. \gls{ui} forgetting is less sensitive to the increase in cost over time. \gls{ctvbo} further reduces the regret as well as its variance.}
+    \label{fig:LQR_cumulative_regret}
+\end{figure}
+All variations outperform the initial optimal controller $\mathbf{K}_0^*$. 
+
+Furthermore, using the proposed method \gls{ctvbo} reduces the mean regret compared to standard \gls{tvbo} (Hypothesis~\ref{hyp:ctvbo}). As expected, the variations using \gls{b2p} forgetting are more sensitive to the increase in cost over time compared to \gls{ui} forgetting resulting in a higher regret. To further investigate the exploration behavior of the variations, the regret is split into an exploration regret and an exploitation regret as
+% \begin{align}
+%     R_T &= \sum_{t=1}^T \left(f_t(\mathbf{x}_t) - f_t(\mathbf{x}_t^*)\right) \\
+%     &= \underbrace{\sum_{t=1}^T \left(f_t(\mathbf{x}_t) - f_t(\mathbf{\hat{x}}_t)\right)}_{\coloneqq \hat{R}_T \text{ (Exploration)}} + \underbrace{\sum_{t=1}^T \left(f_t(\mathbf{\hat{x}}_t) - f_t(\mathbf{x}_t^*)\right)}_{\coloneqq R_T^* \text{ (Exploitation)}}.
+% \end{align}
+\begin{equation}
+    R_T = \sum_{t=1}^T \left(f_t(\mathbf{x}_t) - f_t(\mathbf{x}_t^*)\right) = \underbrace{\sum_{t=1}^T \left(f_t(\mathbf{x}_t) - f_t(\mathbf{\hat{x}}_t)\right)}_{\coloneqq \hat{R}_T \text{ (Exploration)}} + \underbrace{\sum_{t=1}^T \left(f_t(\mathbf{\hat{x}}_t) - f_t(\mathbf{x}_t^*)\right)}_{\coloneqq R_T^* \text{ (Exploitation)}}.
+    \label{eq:split_regret}
+\end{equation}
+The exploitation regret $R_T^*$ represents the cost of the predicted optimum $\mathbf{\hat{x}}_t$ deviating from the true optimum $\mathbf{x}_t^*$. In contrast, the exploration regret $\hat{R}_T$ captures the cost of choosing a query deviating from the predicted optimum. The split regret for the \gls{lqr} problem is displayed in Figure~\ref{fig:LQR_split_regret}. It shows that the constrained models deviate more from the optimum initially than is the case for the unconstrained models. A reason for this is that the objective function is very flat in the beginning. However, after the increase in cost, it becomes apparent that regardless of the algorithm, the optimum can be tracked equally well in comparison since the lines of $R_T^*$ of unconstrained and constrained variation run roughly parallel for $t>100$.
+\begin{figure}[h]
+    \centering
+    \input{thesis/figures/pgf_figures/LQR_split_regret.pgf}
+    \caption[Exploration and exploitation regret of the \gls{lqr} problem of an inverted pendulum.]{Exploration and exploitation regret of the \gls{lqr} problem of an inverted pendulum. The regret is split according to \eqref{eq:split_regret}.}
+    \label{fig:LQR_split_regret}
+\end{figure}
+
+The upper subplot in Figure~\ref{fig:LQR_split_regret}, however, shows that the cost caused by exploration is significantly higher for the unconstrained variations as the constraints in \gls{ctvbo} limit the exploration as discussed in \Cref{sec:model_convex_functions}. Especially for the variations that use \gls{b2p} forgetting, the cost caused by excessive exploration is high compared to \gls{ui} forgetting. Furthermore, the tracking of the optimum is better with \gls{ui} forgetting, despite the lower exploration cost.
+
+\section{Discussion}
+
+Different synthetic experiments (\Cref{sec:synthetic_experiments}) and an application example (\Cref{sec:LQR}) were conducted to compare the variations, evaluate the proposed methods \gls{uitvbo} and \gls{ctvbo} presented in \Cref{chap:concept}, and test Hypotheses~\ref{hyp:ui_structural_information} though \ref{hyp:ctvbo}.
+The hypotheses are individually revisited and discussed, and afterwards, further particularities that emerged in the results are discussed.
+
+\subsubsection{Regarding Hypothesis~\ref{hyp:ui_structural_information}}
+
+Hypothesis~\ref{hyp:ui_structural_information} stated that \gls{b2p} forgetting would be more sensitive to an optimistic prior mean compared to \gls{ui} forgetting, which would be reflected in higher regret. All synthetic experiments confirmed the hypothesis. Only the two-dimensional within- and out-of-model comparisons could not directly confirm the hypothesis. However, further investigations of the within-model comparison also showed higher sensitivity. Furthermore, it could be concluded that a pessimistic prior mean can also lead to an increased regret since it can restrict the exploratory behavior of \gls{b2p} forgetting too much and thus aggravating the learning of the temporal change. The \gls{lqr} application example showed that \gls{b2p} forgetting was very sensitive to the increase in cost over time reflected in increased exploration behavior as shown in Figure~\ref{fig:LQR_split_regret}. 
+
+\subsubsection{Regarding Hypothesis~\ref{hyp:ui_good_mean}}
+
+Hypothesis~\ref{hyp:ui_good_mean} stated, that given a well-defined prior mean, the regret of \gls{b2p} forgetting and \gls{ui} forgetting is comparable. This was also confirmed by the synthetic experiments of the moving parabola (\Cref{sec:1D,sec:2D}), which were designed for a quantitative comparison. Here, the optimal forgetting factors for \gls{b2p} and \gls{ui} forgetting were selected on the basis of a sensitivity analysis and both, \gls{b2p} and \gls{ui} forgetting, showed very similar performance in terms of regret for optimal forgetting parameters.
+
+\subsubsection{Regarding Hypothesis~\ref{hyp:ctvbo}}
+
+The final hypothesis, Hypothesis~\ref{hyp:ctvbo}, stated that \gls{ctvbo} would result in lower regret compared to standard \gls{tvbo}, regardless of the forgetting strategy, because it incorporates prior knowledge. This could not be confirmed, since for very flat objective functions the combination of \gls{b2p} forgetting and \gls{ctvbo} resulted in higher regret compared to standard \gls{tvbo}. The constraints and the flat posterior due to \gls{b2p} forgetting increased the sampling radius around the optimum such that the regret was higher than the one caused by occasional sampling at the bounds by unconstrained \gls{b2p} forgetting. However, for \gls{ui} forgetting it was demonstrated that the use of \gls{ctvbo} always results in lower regret compared to standard \gls{tvbo}. In contrast to \gls{b2p} forgetting, the posterior around the expected optimum does not propagate to the prior mean as described in \Cref{sec:1D}. Thus, the sampling radius is not significantly increased. 
+
+\subsubsection{Further Observations}
+
+It could be observed that the differences between standard \gls{tvbo} and \gls{ctvbo} were smaller in the two-dimensional examples than in the one-dimensional examples. One reason for this may be the smaller number of \glspl{vop} per dimension $N_{v/D}$, which enforce convexity. Further investigations would be necessary, e.g. reducing $N_{v/D}$ in the one-dimensional examples, in order to be able to confirm this assumption. Nevertheless, this also directly points out a deficiency of \gls{ctvbo}. If the sensitivity to $N_{v/D}$ is very high, methods other than proposed by \textcite{Agrell_2019} are needed to enforce the convexity of the posterior. Also, to scale \gls{ctvbo} to higher dimensions, other approaches would be needed.
+
+While the main focus of the comparisons was on the forgetting strategies, the data selection strategies were also used for the individual variations. Here, it was shown that the size of a sliding window of $W=30$ is too small for \gls{b2p} forgetting in the one-dimensional experiments. This was expected since it was not chosen according to \eqref{eq:sliding_window} but to have a comparable number of training points as the binning approach. In the two-dimensional experiments, a sliding window size of $W=80$ already showed to be competitive. The chosen number of bins per dimension of $20$ for \gls{ui} forgetting turned out to be sufficient since, especially for \gls{ctvbo}, the regret was very similar to that of \gls{ui} forgetting without data selection strategy.
+
+Lastly, it should be noted that learning hyperparameters in \gls{tvbo} is difficult because the samples are strongly correlated through the acquisition function and not iid, which is required for maximum likelihood approaches. Thus, bounds for the length scale had to be used to avoid length scales that were either too small or too large. Furthermore, the noise was fixed to capture the temporal change and not disregard them as noise.
+The out-of-model comparisons in \Cref{sec:out_of_model} also showed that learning hyperparameters is even more challenging if \gls{b2p} forgetting is used due to the propagation of the expected value to the prior mean. The discussed data selection strategies improved learning the hyperparameters since they reduced the data set and neglected irrelevant data.
+
+%%%%% Emacs-related stuff
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "../../main"
+%%% End: 

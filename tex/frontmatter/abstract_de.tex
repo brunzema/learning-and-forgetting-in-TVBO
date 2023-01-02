@@ -1,0 +1,12 @@
+\subsection*{Kurzzusammenfassung}
+Das Ziel von zeitabhängiger Bayes'scher Optimierung (\acrshort{tvbo}) ist es, ein Optimum in einem dynamischen Optimierungsproblem mit einer unbekannten Zielfunktion zu finden und zu verfolgen. In jedem Zeitschritt muss ein Algorithmus entscheiden, wo die Zielfunktion als nächstes auszuwerten ist, indem er entweder Orte wählt, an denen die Funktionsauswertung bekanntlich nah am Optimum liegt, oder unsichere Orte untersucht, um so die zeitliche Veränderung der Zielfunktion zu erfassen. Um zeitliche Veränderungen zu lernen, müssen wir jedoch einige Regularitätsannahmen für diese Veränderungen und idealerweise für die Eigenschaften der Zielfunktionen treffen. Wir sind insbesondere an Problemen der Reglereinstellung mit konvexen Zielfunktionen interessiert. Ohne jegliche Annahmen ist die Verfolgung des Optimums nicht möglich. Statt Heuristiken für den Algorithmus zu verwenden, betten wir die Annahmen in ein räumlich-zeitliches \acrshort{gp}-Modell ein.
+
+Wir schlagen vor, die zeitliche Dimension als Wiener-Prozess zu modellieren, der vergangene Informationen in Form ihres Erwartungswerts erhält. Ein Wiener-Prozess erfasst die erwarteten Änderungen in der Zielfunktion eines sich verändernden dynamischen Systems besser und ist robuster gegenüber fehlerhaften A-priori-Verteilungen im Vergleich zum Stand der Technik in \acrshort{tvbo}. Um das Wissen über die Konvexität der Zielfunktion zu nutzen, legen wir Ungleichheitsnebenbedingungen für die zweite Ableitung des \acrshort{gp}-Modells fest. Dies ermöglicht dem Algorithmus, unter Verwendung lokaler Informationen global zu extrapolieren und hiermit unerwünschte globale Exploration zu vermeiden ohne zusätzliche Heuristiken verwenden zu müssen.
+
+Wir demonstrieren in umfangreichen synthetischen Experimenten und einem Anwendungsbeipiel, dem Einstellen eines Reglers, die Vorteile des Einbeziehen dieser Annahmen für \acrshort{tvbo}, aus denen erhebliche Leistungs- und Robustheitsvorteilen im Vergleich zum Stand der Technik resultieren. 
+
+\glsresetall
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "../../main"
+%%% End: 

@@ -1,0 +1,17 @@
+\chapter{Conclusion and Outlook}
+\label{chap:conclusion}
+
+In this thesis, modeling the temporal dimension in TVBO was categorized into B2P and UI forgetting. Previous methods for GP-based TVBO model have exclusively used B2P forgetting. In B2P forgetting, the information about previous measurements is lost over time. In contrast, a modeling approach for TVBO using UI forgetting based on a Wiener process was proposed -- \gls{uitvbo}. The performance of \gls{uitvbo} with a well-defined prior mean is similar to the performance of the state-of-the-art modeling approach of \gls{b2p} forgetting. However, \gls{uitvbo} shows significantly higher robustness for non-mean reverting objective functions, which was demonstrated in an application example, the \gls{lqr} problem of an inverted pendulum, and other synthetic experiments. 
+To limit the increasing variance of \gls{uitvbo} and additionally incorporate prior knowledge about the shape of the objective function into \gls{tvbo}, the method \gls{ctvbo} was developed and proposed. \gls{ctvbo} constrains the posterior of the GP at each time step using \glspl{vop}, preventing undesirable exploration. It showed for almost all simulations an improvement regarding the regret and the tendency to a reduced variance. Only the combination of \gls{b2p} forgetting and \gls{ctvbo} with very flat objective functions showed an increase in regret compared to standard \gls{tvbo} due to the forgetting. This was not observed for methods using \gls{ui} forgetting and the combination of both proposed methods, \gls{uitvbo} and \gls{ctvbo}, showed the lowest regret outperforming the current state-of-the-art method.
+
+While working on this thesis, some ideas have emerged on how to further develop the proposed concepts, as well as other challenges that arise in \gls{tvbo} that would be interesting future research directions. It would be interesting to use iterative Kalman filter updates similar to \textcite{Carron_2016} instead of modeling the temporal dimension with the \gls{gp} for \gls{tvbo} to design other implementations of \gls{ui} forgetting. This would also require different data selection strategies. Here, the use of approaches as in \textcite{Titsias_2009} would be interesting, using inducing points, which only approximate the posterior at the current time step.
+
+To make \gls{ctvbo} applicable to higher dimensions, new methods not based on \glspl{vop} for constraining the posterior are needed. An interesting basis for such a method for \glspl{gp} could be \textcite{Aubin_2020}, which does not require \glspl{vop} and guarantees satisfying shape constraints not only at finite points but uniformly.
+
+Furthermore, research on novel acquisition functions for \gls{tvbo} is necessary. On the one hand, non-myopic acquisition functions would be conceivable as in \textcite{Renganathan_2020}. On the other hand, an online optimization of the exploration-exploitation trade-off parameter in \gls{ucb} based on the change in the objective function would be an interesting research direction. This change could be estimated online based on the difference between the expected measured value at the query location and the actual measured value.
+
+%%%%% Emacs-related stuff
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "../../main"
+%%% End: 

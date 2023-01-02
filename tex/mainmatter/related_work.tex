@@ -1,0 +1,102 @@
+\chapter{Related Work}
+\label{chap:related_work}
+
+
+This thesis proposes the modelling approach \gls{uitvbo} and the method \gls{ctvbo}. \gls{uitvbo} is the first model to implement a \gls{ui} forgetting strategy into the \gls{gp} model of \gls{tvbo} and \gls{ctvbo} utilizes prior knowledge about the shape of the objective function to improve the sampling efficiency. In the following, related work for these methods is discussed and the resulting research gap is identified which is filled by this thesis.
+
+\subsubsection{Embedding Prior Knowledge in Bayesian Optimization}
+
+\gls{bo} has been a powerful optimization framework for optimizing black-box functions in time-invariant environments. Especially \gls{gp}-based \gls{bo} has shown to efficiently find global optima of multimodal functions also in higher dimensional spaces \cite{Snoek_2012} and while providing strong convergence guarantees under mild assumptions \cite{Srinivas_2010}. However, choosing a suitable kernel is crucial to increase the sample efficiency of \gls{bo} as the kernel defines the hypothesis space of the unknown objective function. Therefore, the selection of a suitable kernel is a way to incorporate prior knowledge, and \textcite{Duvenaud_2014} developed a method for automatically creating a kernel based on a given data set. \textcite{Marco_2017} considered an LQR problem and specifically designed an \emph{LQR kernel} improving sampling efficiency compared to the universal \gls{se} kernel.
+
+However, rather than restricting the hypothesis space by the choice of kernel, the proposed method \gls{ctvbo} enforces shape constraints on the \gls{gp} posterior. \textcite{Jauch_2016} used the method of \textcite{Wang_2016} with the rejection sampling algorithm of \textcite{Botev2016} to enforce convexity constraints in standard \gls{bo} for finding optimal hyperparameters of a SVM. The method of \textcite{Wang_2016} was also applied by \textcite{Ospina_2021} in an online primal-dual optimization algorithm using a convexity constrained \gls{gp} to model the objective function. Furthermore, \textcite{Owen_2021} applied monotonicity constraints as introduced in \textcite{pmlr-v9-riihimaki10a} to actively learn a decision hyper plane through user feedback in psychophysics experiments.
+Also, recent work by \textcite{Jeong_2021} restricts the hypothesis space not through the kernel but by conditioning the \gls{gp} model to consider prior knowledge about lower and upper bounds on the optimum.
+
+
+\subsubsection{Modeling Time-Varying Functions Using Gaussian Processes}
+
+Modeling time varying-function in a Bayesian setting has discussed in multiple regression and Bayesian filtering studies \cite{Vaerenbergh_2012}\cite{Vaerenbergh2_2012}\cite{Sarkka_2013}\cite{Carron_2016}.
+To model spatial and temporal correlations of a time-varying function using a \gls{gp}, the proposed method \gls{uitvbo} uses a spatio-temporal kernel as in \eqref{eq:spatio_temporal_kernel}. This approach of separating spatial and temporal data, each handled in a separate kernel, was also used in \textcite{Sarkka_2013} and \textcite{Carron_2016}.
+
+Modeling time varying-function in a Bayesian setting has discussed in multiple regression and Bayesian filtering studies \cite{Vaerenbergh_2012}\cite{Vaerenbergh2_2012}\cite{Sarkka_2013}\cite{Carron_2016}.
+To model spatial and temporal correlations of a time-varying function using a \gls{gp}, the proposed method \gls{uitvbo} uses a spatio-temporal kernel as in \eqref{eq:spatio_temporal_kernel}. This approach of separating spatial and temporal data, each handled in a separate kernel, was also used in \textcite{Sarkka_2013} and \textcite{Carron_2016}.
+
+In \textcite{Vaerenbergh_2012}, a kernel recursive least squares tracker was developed to capture nonlinear and time-varying correlations in data by explicitly modeling information loss in the algorithm. Since the informativeness of past data from a time-varying function decreases over time, they propose two methods to model this notion of forgetting at each time step explicitly. The first method is called \gls{b2p} forgetting and captures the idea that as the informativeness of a measurement decreases, the algorithm should converge back to the prior distribution. A formal definition for \gls{b2p} forgetting is given in Definition~\ref{def:b2p}.
+\begin{definition}[{\acrlong{b2p} forgetting, adapted from \textcite[Section~3.A]{Vaerenbergh_2012})}]
+Given a prior prediction for the expected value at the spatial location $\mathbf{x}$ as $\mu_{0,\mathbf{x}}$ and let $\mu_{t,\mathbf{x}}$ be the expected value at location $\mathbf{x}$ at time $t$. Then an algorithm implies \gls{b2p} forgetting if $\lim_{t\to\infty}\mu_{t,\mathbf{x}} = \mu_{0,\mathbf{x}}$ after observing no more data.
+\label{def:b2p}
+\end{definition}
+\noindent The second presented approach, \gls{ui} forgetting, expresses forgetting by maintaining the mean estimate but expressing uncertainty by increasing the variance (Definition~\ref{def:ui}). 
+\begin{definition}[{\acrlong{ui} forgetting, adapted from \textcite[Section~3.B]{Vaerenbergh_2012})}]
+Let $\mu_{t_1,\mathbf{x}}$ be the expected value at location $\mathbf{x}$ at time $t_1$ and let $\sigma_{t_1,\mathbf{x}}^2$ be the variance at location $\mathbf{x}$ at time $t_1$. Then an algorithm implies \gls{ui} forgetting if $\mu_{t,\mathbf{x}} = \mu_{t_1,\mathbf{x}}$ and $\sigma_{t,\mathbf{x}}^2 > \sigma_{t_1,\mathbf{x}}^2,\, \forall t>t_1$ after observing no more data after $t_1$.
+\label{def:ui}
+\end{definition}
+\noindent The two forgetting strategies will be used to compare modeling approaches in \gls{tvbo}.
+%, and an algorithm that incorporates the idea of \gls{ui} forgetting into \gls{tvbo} will be presented.
+To account for less informative data, \textcite{Meier_2016} use \emph{drifting \glspl{gp}} discarding data points after some time steps and performing \gls{gp} regression in a sliding window on the current data set. Following Definition \ref{def:b2p}, this can be interpreted as a special case of \gls{b2p} forgetting as discarding a data point is equivalent to assuming the prior distribution at that location. Therefore, this sliding window approach arises naturally as an approximation strategy to algorithms which imply \gls{b2p} forgetting and it will be used in \Cref{chap:results} as an approximation method for \gls{b2p} forgetting \gls{tvbo} algorithms.
+
+\subsubsection{Optimization in Time-Varying Environments with Bandit Feedback}
+
+Minimizing regret over finite actions in a time-varying environment is subject to the study of dynamic \glspl{mab} or sometimes called restless bandits. On the assumption of gradual changes in the regret at each bandit, \textcite{Slivkins_2008} model the regret as Brownian motion. In Brownian motion, a particle is assumed to perform a random walk which can mathematically be described as a Wiener process. A Wiener process has the property that between each time step the variance is increased while the mean remains constant. Therefore, according to Definition \ref{def:ui}, the developed algorithm in \textcite{Slivkins_2008} implies a \gls{ui} forgetting strategy. In contrast, \textcite{Chen_2021} modeled the regret not as a Wiener process but an autoregressive model of order $1$ in
+\begin{equation}
+    X_{t}=c+ \varphi X_{t-1}+\epsilon_{t}
+    \label{eq:ar1}
+\end{equation}
+of which the Wiener process is a special case with $\varphi=1$, $c=0$, and $\epsilon_{t}$ as the standard normal distribution. For $\varphi \in (0,1)$, the stochastic process in \eqref{eq:ar1} converges to $0$. If $0$ is defined as the expected value of a prior prediction, than the implicit forgetting strategy in \textcite{Chen_2021} can be considered as \gls{b2p} forgetting.
+
+In the dynamic \glspl{mab} approaches the regret of each bandits is considered to be independent and therefore these algorithms seek to exploit only temporal correlations. In contrast, the problem formulation in \Cref{sec:problem_set_up} considers an objective function which is defined over infinitely many bandits as $\mathcal{X} \subset \R^D$ correlating the regret also in the spatial dimension. Therefore, an algorithm for this setting should exploit temporal \emph{and} spatial correlations. This is the goal of algorithms in \gls{gp}-based \gls{tvbo}.
+
+\gls{gp}-based \gls{tvbo} was first discussed in \textcite{Bogunovic_2016} under a Bayesian regularity assumption of $f_t$ being a sample from a \gls{gp} prior at each time step as $f_t \sim \mathcal{GP}(\mathbf{0}, k)$. Another assumption is, that $f_t$ can be modeled as a Markov chain given a sequence of independent samples $g_1, g_2, \dots$ from a zero mean \gls{gp} prior $g_t \sim \mathcal{GP}(\mathbf{0}, k)$ with kernel $k$ as
+\begin{align}
+    f_1(\mathbf{x}) &= g_1(\mathbf{x}) \\
+    f_{t+1}(\mathbf{x}) &= \sqrt{1-\epsilon} f_{t}(\mathbf{x}) + \sqrt{\epsilon} g_{t+1}(\mathbf{x}), \quad \forall t \geq 2.
+    \label{eq:markov_chain}
+\end{align}
+Here, $\epsilon \in [0, 1]$ is the forgetting factor, which defines how much the objective function varies at each time step. For $\epsilon=0$ this formulation is equivalent to standard \gls{bo} while for $\epsilon=1$ the objective function is modeled to be independent at each time step.
+For an objective function which satisfies the modeling assumptions, \textcite{Bogunovic_2016} derived regret bounds for two algorithms -- R-GP-UCB and TV-GP-UCB. Instead of including the time-varying nature of the objective function into the \gls{gp} model, R-GP-UCB performes GP-UCB in \emph{blocks} of size $H = \lceil \min(T, 12\epsilon^{-\frac{1}{4}}) \rceil$ (for a \gls{se} spatial kernel \cite[Corollary~4.1]{Bogunovic_2016}). The mean $\mu_t$ and the variance $\sigma_t$ of the \gls{gp} model are reset after every $H$ time steps. In contrast, the presented models in this thesis explicitly model the objective function as time-varying and are therefore more similar to the second algorithm TV-GP-UCB. Here, the objective function is modeled using a \gls{gp} with a spatio-temporal kernel \eqref{eq:spatio_temporal_kernel} with temporal kernel
+\begin{equation}
+    k_{T,tv}(t, t') = (1-\epsilon)^{\frac{|t-t'|}{2}}
+    \label{eq:tvkernel}
+\end{equation}
+which is similar to the kernel defined by the stochastic Ornstein-Uhlenbeck process and is a form of \gls{b2p} forgetting.
+Applying $k_{T,tv}$ on the temporal dimension is identical to decreasing the \emph{weight} of data from the past to model the loss of information over time \cite{Bogunovic_2016}. TV-GP-UCB has been used in a few different applications such as controller learning \cite{Su_2018}, safe adaptive control \cite{Koenig_2021}, and online hyperparameter optimization in reinforcement learning \cite{Parker-Holder_2020}\cite{Parker-Holder_2021} as well as for developing a non-myopic acquisition function for \gls{tvbo} \cite{Renganathan_2020}. The stationary kernel $k_{T,tv}$ implies \gls{b2p} forgetting, as the posterior mean \eqref{eq:gp_mean} and covariance \eqref{eq:gp_cov} converge to the prior distribution for large $\Delta t = |t-t'|$ since
+\begin{equation}
+    \lim_{\Delta t \to \infty} k_{T,tv}(t, t') = \lim_{\Delta t \to \infty} (1-\epsilon)^{\frac{\Delta t}{2}} = 0, \quad \forall \epsilon \in (0,1).
+    \label{eq:convergence_TV}
+\end{equation}
+In contrast, the proposed method \gls{uitvbo} utilizes a temporal kernel implementing \gls{ui} forgetting as opposed to \gls{b2p} forgetting. Such a modeling approach with a spatio-temporal kernel for \gls{bo} can also be considered as a special case of \emph{contextual} \gls{bo} \cite{Krause_2011} with the context time, but the constraint of not being able to sample in the whole context space. In fact, in \textcite[Section~5.3 and Section~6.2]{Krause_2011} a Matérn kernel with $\nu = \frac{5}{2}$ was used as a temporal kernel
+\begin{equation}
+    k_{T,matérn}(t, t')=\Bigg( 1+ \frac{\sqrt{5}\Delta t}{l} + \frac{5\Delta t^2}{3l^2}\Bigg) \exp\Bigg(-{\frac{\sqrt{5}}{l} \Delta t}\Bigg).
+    \label{eq:temporal_matern_kernel}
+\end{equation}
+Like \eqref{eq:convergence_TV}, $k_{T,matérn}$ converges to $0$ for $\Delta t \to \infty$ implying \gls{b2p} forgetting. Unlike the above presented approaches to \gls{tvbo}, \textcite{Baheri_2017} used an additive instead of a product composite kernel as spatio-temporal kernel. The proposed method \gls{uitvbo} uses a product composite kernel as it aims to exploit spatial \emph{and} temporal correlations \cite[Section~4.2.4]{Rasmussen_2006}.
+
+The approach of \emph{weighting} the data to incorporate information loss over time as in TV-GP-UCB was also studied under frequentist regularity assumptions by \textcite{Deng_2021}. The frequentist regularity assumptions are, that the objective function $f_t$ is not a sample of a \gls{gp}, but its smoothness is defined at each time step by the \gls{rkhs} with a bounded norm of the corresponding spatial kernel. The resulting algorithm WGP-UCB~\cite{Deng_2021} uses for each acquired data points $\mathbf{x}_t$ a weight $w_t=\gamma^{-t}$ with $\gamma \in (0,1)$ as forgetting factor. This yields in an increased weight of each new data point as opposed to decreasing the weight of old data points as in TV-GP-UCB. However, the implicit forgetting strategy remains \gls{b2p} forgetting as in algorithm data points converge back to a zero mean. R-GP-UCB has also been considered under frequentist regularity assumptions and regret bounds have been derived by \textcite{Zhou_2021}. Furthermore, \textcite{Zhou_2021} introduced SW-GP-UCB with a similar idea to R-GP-UCB. Instead of performing GP-UCB in blocks, it performs GP-UCB in a sliding window of size $W$ which moves with time.
+Based on the Markov chain assumption of TV-GP-UCB, \textcite{Wang_2021} developed the CE-GP-UCB algorithm for online hyperparameter optimization, which only opts to observe feedback from the objective function if the variance at the query points chosen by TV-GP-UCB is high. Therefore, contrary to \Cref{sec:problem_set_up}, CE-GP-UCB can skip iterations.
+
+\bgroup
+\def\arraystretch{1.5}
+\begin{table}[t]
+\centering
+\begin{tabular}{ c || c | c |}
+%& \multicolumn{2}{c|}{Time-varying environment with bandit feedback} \\ \cline{2-3}
+& \textbf{Infinte bandits} & \textbf{Finite bandits} \\
+\textbf{Forgetting strategy} & (\gls{gp}-based \gls{tvbo}) & (Dynamic \acrshortpl{mab}) \\\hline\hline
+\gls{b2p} forgetting & \cite{Bogunovic_2016},\cite{Wang_2021},\cite{Deng_2021},\cite{Zhou_2021},\cite{Nyikosa_2018},\cite{Imamura_2020} & \cite{Chen_2021} \\ \hline
+ \gls{ui} forgetting & \cellcolor{blau25} UI-TVBO, C-UI-TVBO & \cite{Slivkins_2008}  \\  \hline
+\end{tabular}
+\caption[Research gap of \gls{uitvbo}.]{Research gap in modeling time-varying environments with bandit feedback. In this thesis, \gls{ui} forgetting for \gls{tvbo} with (C-\gls{uitvbo}) and without (\gls{uitvbo}) convexity constraints is evaluated.}
+\label{tab:research_gap}
+\end{table}
+\egroup
+
+All the prior work in \gls{tvbo} discussed above used discrete time steps $t\in \mathcal{T} = \{1,2, \dots, T\}$ and therefore a fixed sampling interval of $\Delta t = 1$ as it is the case in the problem formulation in \Cref{sec:problem_set_up}. However, there have been approaches presented with a varying sampling interval \cite{Nyikosa_2018}\cite{Imamura_2020}\cite{Raj_2020}. \textcite{Imamura_2020} considered the same Markov chain model as TV-GP-UCB but accounted for a non-constant evaluation time. They were able to prove lower regret bounds for Bayesian regularity assumptions compared to \textcite{Bogunovic_2016} if the evaluation time is explicitly considered.
+Similarly, in the algorithm ABO-f \cite{Nyikosa_2018}, the time at which the objective function is evaluated can vary. ABO-f uses a \gls{se} kernel as a spatial as well as a temporal kernel. Unlike in the problem formulation in \Cref{sec:problem_set_up}, the acquisition function in ABO-f is not limited to choosing a query within the feasible spatial set $\mathcal{X}$ at the current time. It can change the box constraints for optimizing the acquisition function at each iteration based on the learned length scale of the temporal kernel. The acquisition function therefore chooses also the time at which the objective function is to be evaluated as $\{\mathbf{x}, t\} = \argmin_\mathbf{x} \alpha(\mathbf{x}, t|\mathcal{D})$. To validate ABO-f and show its benefits compared to optimizing at fixed time intervals, \textcite{Nyikosa_2018} introduced ABO-t as a fixed time variation of ABO-f, which also uses a temporal \gls{se} kernel denoted as $k_{T,se}$ hereafter. Since this satisfies the problem formulation, ABO-t will be used as a benchmark. \textcite{Raj_2020} extended ABO-f by using a spectral mixture kernel as the temporal kernel to improve the extrapolation properties in the temporal dimension.
+
+In reviewing related work on optimization in time-varying environments considering only bandit feedback, the research gap was identified as shown in Figure \ref{tab:research_gap}. The proposed method \gls{uitvbo} fills this research gap introducing the first modeling approach using \gls{ui} forgetting in \gls{gp}-based \gls{tvbo}.
+Furthermore, in \gls{ctvbo}, this thesis presents a method to incorporate prior knowledge about the shape of the objective function in \gls{tvbo}, which, to the best of my knowledge, has not been done in a time-varying setting.
+
+%%%%% Emacs-related stuff
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "../../main"
+%%% End: 

@@ -1,0 +1,302 @@
+\chapter{Methods}
+\label{chap:concept}
+
+In this chapter, the methods proposed in this thesis are derived and presented on an example to build up intuition. The methods are:
+\begin{itemize}
+    \item \textbf{\gls{uitvbo}:} A modeling approach to \gls{tvbo} incorporating \gls{ui} forgetting.
+    \item \textbf{\gls{ctvbo}:} An method embedding prior knowledge about the shape of the objective function into \gls{tvbo} using shape constraints.
+\end{itemize}
+Afterwards, extensions which are relevant for the practical application of both methods are discussed.
+
+\section{Uncertainty-Injection Forgetting in Time-Varying Bayesian Optimization}
+\label{sec:forgetting_strategies}
+
+The current state-of-the-art modeling for forgetting in \gls{tvbo} is B2P forgetting. According to Definition \ref{def:b2p}, the expectation about a function value propagates back to the prior belief over time, losing all information. Meanwhile, \gls{ui} forgetting is expressed by increasing the variance over time and, the key difference compared to \gls{b2p} forgetting, maintaining structural information of the function value in the form of the posterior mean. Therefore, inspired by \textcite{Slivkins_2008}, the modeling approach \gls{uitvbo} is introduced and transfers the concept of \gls{ui} forgetting to the infinite bandit setting in \gls{tvbo} to retain structural information.
+
+The intuition behind \gls{ui} forgetting is gradual change. Figure~\ref{fig:intuition_ui} shows an example with measurements taken at a fixed spatial coordinate $x_1$ of an objective function at time steps $t_1$--$t_4$. If no prior knowledge about a drift in the objective function is available, the expected value remains constant until the next measurement. However, the variance increases due to the exact value becoming more uncertain over time. As in \textcite{Slivkins_2008}, this can be formalized as a Wiener process.
+\begin{figure}[t]
+    \centering
+    \input{thesis/figures/pgf_figures/intuition_ui.pgf}
+    \caption[Visualization of the intuition behind \gls{ui} forgetting.]{On the left, the intuition behind \gls{ui} forgetting is displayed. Until a new measurement is conducted, the expected value remains the same but the uncertainty increases. On the right, the Wiener process kernel and the \gls{b2p} forgetting kernel $k_{T,tv}$ are applied on the temporal data. The thin lines are samples from the posterior.}
+    \label{fig:intuition_ui}
+\end{figure}
+In order to use the Wiener process for describing temporal correlations with a \gls{gp}, the Wiener process kernel is introduced as
+\begin{equation}
+    k_{T,wp}(t,t') = \sigma_w^2 \left( \min(t,t') - c_0\right)
+    \label{eq:wienerprocesskernel}
+\end{equation}
+with a scaling factor $\sigma_w^2$ and a start time parameter $c_0$. Applying the Wiener process kernel $k_{T,wp}$ as well as the \gls{b2p} forgetting kernel $k_{T,tv}$ in \eqref{eq:tvkernel} to the described example is displayed on the right in Figure~\ref{fig:intuition_ui}. The information on the last measurements' function value is preserved with $k_{T,wp}$, while the expected value using $k_{T,tv}$ converges to the prior mean $\mu_0$.
+Furthermore, \gls{b2p} forgetting can also be interpreted as assuming gradual changes, but with the bias that these changes are always in the direction of the predefined prior.
+
+To correlate also the spatial with the temporal dimension, \gls{uitvbo} uses a product composite kernel as in \eqref{eq:spatio_temporal_kernel} and previous work \cite{Bogunovic_2016}\cite{Nyikosa_2018}. Considering a \gls{se} kernel for the spatial dimensions and a Wiener process kernel for the temporal dimension the spatio-temporal product kernel $k$ for \gls{uitvbo} is
+\begin{equation}
+    k(\{\mathbf{x},t\},\{\mathbf{x}',t'\}) = \sigma_k^2\exp\left(-\frac{1}{2} \boldsymbol\tau^T \MatBold{\Lambda}^{-1} \boldsymbol\tau\right) \cdot \sigma_w^2 \left( \min(t,t') - c_0\right)
+    \label{eq:ui-tvbo_model}
+\end{equation}
+with $\boldsymbol\tau = \mathbf{x} - \mathbf{x}'$ for notation convenience. This modeling approach is not limited to the \gls{se} kernel for the spatial dimension. Other kernels, e.g., from the Matèrn class, are suitable as well. The spatio-temporal kernel in \eqref{eq:ui-tvbo_model} possesses $3 + D$ hyperparameters. The output variance $\sigma_k^2$ and the $D$ length scales depend on the objective function at each time step leaving the two hyperparameters $c_0$ and $\sigma_w^2$ to characterize the forgetting of the model. However, similar to \gls{b2p} forgetting kernel $k_{T,tv}$, it is desirable to have only one additional hyperparameter for the temporal dimension that defines the forgetting of the model. Therefore, $c_0$ and $\sigma_w^2$ are correlated with each other resulting in the definition of only one forgetting hyperparameter for \gls{uitvbo} in the following.
+
+By definition, no forgetting has occurred at the time step $t=0$. Therefore, for inputs with the same spatial location, the output of the kernel in \eqref{eq:ui-tvbo_model} should be the output variance $\sigma_k^2$. Consequently, the start time parameter $c_0$ of the Wiener process kernel for $\boldsymbol\tau = \mathbf{0}$ is calculated as 
+\begin{align}
+    k(\{\mathbf{x},0\},\{\mathbf{x},t'\}) &= \sigma_k^2\cdot \sigma_w^2 \left(\min(0,t') - c_0\right) \overset{!}{=} \sigma_k^2 \label{eq:c0}\\
+    % \sigma_k^2 \cdot \sigma_w^2 \left(- c_0\right) &\overset{!}{=} \sigma_k^2 \\
+    \implies c_0 &\overset{!}{=} - \frac{1}{\sigma_w^2} , \quad \text{with}\, \min(0,t') = 0, \, \forall t' \geq 0.
+\end{align}
+At a different time step $t_1$ with $t_1>0$ and $t_1<t'$ the variance should increase with $\sigma_w^2 \cdot t_1$ as it is the case for a Wiener process. The output of $k$ for $\boldsymbol\tau = \mathbf{0}$ at $t_1$ is then
+\begin{align}
+    k(\{\mathbf{x},t\},\{\mathbf{x},t'\}) &=\sigma_k^2 \cdot \sigma_w^2 \left(\min(t_1,t') - c_0\right) \\
+    &= \sigma_k^2 \cdot \sigma_w^2 \left(t_1 - c_0\right), \quad \text{with}\, \min(t_1,t') = t_1, \, \forall t' \geq t_1\\
+    &= \sigma_k^2 \cdot \sigma_w^2 \left(t_1 +  \frac{1}{\sigma_w^2}\right)\\
+    &= \underbrace{\sigma_k^2 \cdot \sigma_w^2 \cdot t_1}_{\text{variance due to forgetting}} + \underbrace{\sigma_k^2}_{\text{variance of the spatial kernel}}.
+\end{align}
+However, the increase in variance due to forgetting still depends on the output variance of the spatial kernel $\sigma_k^2$. Therefore, the scaling factor of the Wiener process $\sigma_w^2$ has to be normalized by $\sigma_k^2$ as
+\begin{equation}
+    \sigma_w^2 = \frac{\hat{\sigma}_w^2}{\sigma_k^2}
+\end{equation}
+resulting in
+\begin{align}
+    k(\{\mathbf{x},t\},\{\mathbf{x},t'\}) &=\sigma_k^2 \cdot \sigma_w^2 \left(\min(t_1,t') - c_0\right)\\
+    &= \underbrace{\hat{\sigma}_w^2 \cdot t_1}_{\text{variance due to forgetting}} + \underbrace{\sigma_k^2}_{\text{variance of the spatial kernel}} \label{eq:sigma_w_hat}
+\end{align}
+with $\hat{\sigma}_w^2$ as the hyperparameter defining the increase in variance at each time step. It is denoted as the \gls{ui} forgetting factor hereafter.
+\begin{figure}[t]
+    \centering
+    \input{thesis/figures/pgf_figures/forgetting_factor.pgf}
+    \caption[Visualization of the output of a composite kernel with different temporal kernels.]{Different temporal kernels with a \gls{se} spatial kernel and the resulting output of the spatio-temporal kernel over time and spatial distance, given a fixed first input of $k$. The dashed line is visual interpretation for deriving the hyperparameters $c_0$ and $\sigma_w^2$ in \eqref{eq:c0}--\eqref{eq:sigma_w_hat}.}
+    \label{fig:forgetting_factor}
+\end{figure}
+This normalization has to be performed at each time step, if the output scale of the spatial kernel varies over time, e.g., due to hyperparameter learning. As $c_0$ is fixed due to the starting conditions as $c_0 = -\nicefrac{\sigma_k^2}{\hat{\sigma}_w^2}$, $\hat{\sigma}_w^2 \in (0, \infty)$ remains as the only hyperparameter of the \gls{uitvbo} model defining the change in objective function over time. A graphical interpretation of the hyperparameters as well as the behavior of different temporal kernels are given in Figure~\ref{fig:forgetting_factor}. It shows that for a fixed first entry of the kernel (e.g. a training point) the output of the kernel remains constant afterwards given the same spatial location of the second input. In contrast, for the kernel $k_{T,tv}$ implying \gls{b2p} forgetting the output of the spatio-temporal kernel propagates towards $k=0$. Furthermore, for $\hat{\sigma}_w^2 \to 0$ the \gls{uitvbo} model converges to a time-invariant setting. 
+
+\subsubsection{Comparing Back-2-Prior Forgetting and Uncertainty-Injection Forgetting}
+\label{sec:comp_b2p_ui}
+
+In Figure~\ref{fig:different_priors} a comparison between \gls{b2p} and \gls{ui} forgetting is conducted. In each of the three sub-figures, a different constant prior mean is defined. An optimistic prior mean is visualized on the left, reflecting an overly positive expectation of the optimum. In contrast, the right side shows a pessimistic prior mean overestimating the optimum. The center shows a well-defined prior. At the time $t=0$, the objective function
+\begin{equation}
+    f_t(x) = (0.25x)^2
+    \label{eq:example_objective}
+\end{equation}
+ was learned with an equidistant grid of twelve training points in all three cases. At each subsequent time step, only the points $\mathbf{X}_t = [-1, 0, 1]$ and the corresponding training targets are added to the data set. The posteriors shown are each at time $t=3$ (top row) and $t=50$ (bottom row). For \gls{b2p} forgetting the pessimistic and optimistic prior mean cause a significant deviation of the posterior mean from the objective function at $t=50$. In contrast, the mean of \gls{ui} forgetting is independent of the prior and is able to maintain the information of the objective function in form of the mean.
+\begin{figure}[h]
+    \centering
+    \input{thesis/figures/pgf_figures/different_priors.pgf}
+    \caption[Comparing the distribution propagation for \gls{ui} and \gls{b2p} forgetting for different prior means.]{Comparison of the posteriors at $t=3$ (top row) and $t=50$ (bottom row) using \gls{b2p} forgetting and \gls{ui} forgetting with a optimistic prior (left), well-defined prior (center), and pessimistic prior (right) with forgetting factors $\epsilon=\hat{\sigma}_w^2=0.1$.}
+    \label{fig:different_priors}
+\end{figure}
+
+In the context of \gls{tvbo}, assuming the acquisition function is of a similar form as GP-\gls{lcb} \cite{Srinivas_2010} in \eqref{eq:lcb}, an optimistic mean for \gls{b2p} forgetting will likely result in more exploration. On the other hand, a pessimistic mean will result in more exploitation. Especially in cases with the objective functions' mean changing over time, this sensitivity of \gls{b2p} forgetting on the prior mean may be undesirable and lead to an increased cumulative regret. Since \gls{ui} forgetting is independent of the prior mean, if enough data points within $\mathcal{X}$ have been observed, a much more robust performance in terms of cumulative regret is expected with this type of modeling. 
+These assumptions are summarized in Hypothesis~\ref{hyp:ui_structural_information} and \ref{hyp:ui_good_mean}. They will be tested empirically in \Cref{chap:results}.
+
+\begin{hyp}
+As \gls{ui} forgetting maintains structural information, the regret will be smaller compared to \gls{b2p} forgetting if there is a offset in prior mean towards an optimistic mean.
+\label{hyp:ui_structural_information}
+\end{hyp}
+
+\begin{hyp}
+\gls{ui} forgetting and \gls{b2p} forgetting show similar performance if the objective function is mean-reverting and the prior mean is a well-defined prior mean.
+\label{hyp:ui_good_mean}
+\end{hyp}
+
+Additionally, Figure~\ref{fig:different_priors} shows that the variance for \gls{ui} forgetting with $k_{T,wp}$ as temporal kernel does not converge to the output variance of the spatial kernel as it does with \gls{b2p} forgetting. It diverges in regions where no data is added. Therefore, approaches that limit the variance of \gls{ui} forgetting could be beneficial in terms of dynamic cumulative regret. One approach would be to include prior knowledge about the shape of the objective function, as discussed in the next section.
+
+
+\section{Modeling Convex Objective Functions}
+\label{sec:model_convex_functions}
+
+Following Assumption~\ref{ass:prior_knowledge_convex}, the prior knowledge of the objective function staying convex through time is available and embedding prior knowledge in \gls{bo} has proven to increase sampling efficiency as discussed in \Cref{chap:related_work}. Therefore, the method \gls{ctvbo} is proposed to include prior knowledge about the shape of the objective function increasing sampling efficiency and reducing dynamic cumulative regret in a time varying setting.
+
+The objective function remaining convex means that the second derivative in any spatial direction must be greater than zero at each time step. Therefore, shape constraints on the \gls{gp} are used limit the hypothesis space to only functions with
+\begin{equation}
+    \begin{split}
+        \frac{\partial^2 f_t(\mathbf{x})}{\partial x_i^2} \geq 0, \quad &\forall i \in [1, \dots, D]  \\
+        &\forall \mathbf{x} \in \mathcal{X} \\
+        &\forall t \in \mathcal{T}.
+    \end{split}
+\label{eq:convex_functions}
+\end{equation}
+In combination with a smooth kernel such as the \gls{se} kernel, these constraints approximate the positive definiteness of the Hessian of $f_t$.
+
+Ideally, the constraints in \eqref{eq:convex_functions} are enforced globally. However, such methods have not been developed yet for \glspl{gp}. Therefore, the method by \textcite{Agrell_2019} as introduced in \Cref{sec:linear_constraints} is used, which guarantees the convexity only at a finite set of points. However, \textcite{Wang_2016} as well as \textcite{Agrell_2019} observed, that a sufficient amount of such \glspl{vop} results in a high probability of the posterior being convex throughout the feasible set $\mathcal{X}$.
+
+Using the method by \textcite{Agrell_2019} in the time-varying context means applying $D$ linear operators $\mathcal{L}_i = \frac{\partial^2}{\partial x_i^2}$ on the posterior at every time step. As the kernel of the \gls{gp} is a spatio-temporal kernel, the necessary derivatives in the Gram matrices \eqref{eq:constrained_gram1}--\eqref{eq:constrained_gram3} for calculating the factors of the constrained posterior in \eqref{eq:constrained_posterior_distribution} are
+\begin{equation}
+    K^{i,0}_{\mathbf{x},\mathbf{x}'} \coloneqq \frac{\pdiff^2}{\pdiff x_i^2}K(\{\mathbf{x},t\},\{\mathbf{x}',t'\}) = \left[\frac{\pdiff^2}{\pdiff x_i^2}K_S(\mathbf{x},\mathbf{x}')\right] \otimes K_T(t,t')
+    \label{eq:single_deriv}
+\end{equation}
+and 
+\begin{equation}
+    K^{i,j}_{\mathbf{x},\mathbf{x}'} \coloneqq \frac{\pdiff^4}{\pdiff x_i^2 {x'}_j^2}K(\{\mathbf{x},t\},\{\mathbf{x}',t'\}) = \left[\frac{\pdiff^4}{\pdiff x_i^2 {x'}_j^2}K_S(\mathbf{x},\mathbf{x}')\right] \otimes K_T(t,t').
+    \label{eq:double_deriv}
+\end{equation}
+with $\otimes$ as the Hadamard product, $K_S(\mathbf{x},\mathbf{x}')_{i,j}=k_S(\mathbf{x}_i,\mathbf{x}_j')$, and $K_T(t,t')_{i,j}=k_T(t_i,t_j')$.
+This is possible because the linear operators act only on the spatial dimensions, of which the temporal kernel is independent. Furthermore, this restricts the spatial kernel $k_S$ to be at least twice differentiable, while any valid kernel can be used as the temporal kernel.
+
+Next, the \glspl{vop} $\mathbf{X}_v$ must be placed in the time-variant context. Ideally, the \glspl{vop} would be placed dense throughout the domain $\mathcal{X}\times\mathcal{T}$ to ensure convexity. However, as discussed in \Cref{sec:linear_constraints}, this is not possible as sampling from the truncated multivariate normal distribution \eqref{eq:truncated_mvn} becomes infeasible. Therefore, the \glspl{vop} are distributed in an equidistant grid only at the current time step ensuring convexity at the time step at which the acquisition function is optimized. The method \gls{ctvbo} applied to \gls{tvbo} is shown in Algorithm~\ref{algo:constrained_tvbo}.
+
+\DrawBox{a}{b}
+\begin{algorithm}[h]
+\centering
+\caption{\gls{tvbo} using \gls{ctvbo}}
+\begin{algorithmic}[1]
+\Require prior $\mathcal{GP}(m(\mathbf{x}), k_S(\mathbf{x},\mathbf{x}') \otimes k_T(t, t'))$ and hyperparameter; feasible set ${\mathcal{X}\in \R^D}$; data set $\mathcal{D}_{N} = \{y_j, \mathbf{x}_j, t_j\}_{j=0}^{N}$; number of \glspl{vop} per dimension $N_{v/D}$, bounding functions $a(\mathbf{X}_v), b(\mathbf{X}_v)$
+\State $t_0=N$
+\For{$t = t_0, t_0+1, t_0+2, \dots, T$}
+    \State Train GP model with $\mathcal{D}_t$
+    \LineComment{Choose \glspl{vop}}\tikzmark{a}
+    \vspace{2pt}
+    \State Create equidistant grid $X_{v,\mathcal{X}}$ with $N_{v/D}$ \glspl{vop} in each spatial dimensions
+    \State $X_v = \{X_{v,\mathcal{X}}, t+1\}$
+    \vspace{5pt}
+    \LineComment{Calculate constrained posterior}
+    \vspace{2pt}
+    \State Calculate Gram matrices \eqref{eq:constrained_gram1}--\eqref{eq:constrained_gram3} using \eqref{eq:single_deriv} and \eqref{eq:double_deriv}
+    \State Calculate factors for the posterior \Comment{Appendix \ref{apx:numerically_stable_factors}}
+    \State Sample from the posterior at $t+1$ to obtain $\mu_{t+1}, \sigma^2_{t+1}$ \Comment{Algorithm \ref{algo:constrained_posterior}}\tikzmark{b}
+    \vspace{2pt}
+    \State choose next query $\mathbf{x}_{t+1} = \underset{\mathbf{x}\in \mathcal{X}}{\argmin} \,\alpha(\mathbf{x}, t+1|\mu_{t+1}, \sigma^2_{t+1})$
+    \State query objective function $y_{t+1} = f_{t+1}(\mathbf{x}_{t+1}) + w$
+    \State update data set $\mathcal{D}_{t+1} = \mathcal{D}_{t} \cup \{y_{t+1}, \mathbf{x}_{t+1}, t+1\}$
+\EndFor
+\end{algorithmic}
+\label{algo:constrained_tvbo}
+\end{algorithm}
+
+In the following, an intuition about \gls{ctvbo} is presented based on the example objective function in \eqref{eq:example_objective}. As the posterior distribution should satisfy \eqref{eq:convex_functions} the bounding functions in \eqref{eq:linear_inequality_constraints} are set to
+\begin{equation}
+    a(\mathbf{X}_v) = 0, \quad b(\mathbf{X}_v) = \infty.
+    \label{eq:bounding_functions_convex}
+\end{equation}
+Applying the proposed method \gls{ctvbo} (Algorithm~\ref{algo:constrained_tvbo}) to the example in Figure~\ref{fig:different_priors} with the bounding functions as in \eqref{eq:bounding_functions_convex} is visualized in Figure~\ref{fig:different_priors_constrained}.
+\begin{figure}[h]
+    \centering
+    \input{thesis/figures/pgf_figures/different_priors_constrained.pgf}
+    \caption[Comparing the constrained posteriors for \gls{ui} and \gls{b2p} forgetting for different prior means.]{Comparison of the constrained posteriors at $t=3$ (top row) and $t=50$ (bottom row) using \gls{b2p} forgetting and \gls{ui} forgetting with a optimistic prior (left), well-defined prior (center), and pessimistic prior (right) with forgetting factors $\epsilon=\hat{\sigma}_w^2=0.1$ and bounding functions as in \eqref{eq:bounding_functions_convex}.}
+    \label{fig:different_priors_constrained}
+\end{figure}
+It can be observed that the variance for \gls{ui} forgetting no longer diverges where the \glspl{vop} are placed. Furthermore, the convexity at the \glspl{vop} prevents the mean of \gls{b2p} forgetting from falling back to the optimistic prior mean, as was the case in Figure~\ref{fig:different_priors}. Most noticeable, however, is the mean of \gls{ui} forgetting changing over time, although this was not observed in the non-constrained case. Even for \gls{b2p} forgetting with an optimistic prior, the mean initially moves upwards after three time steps, although the opposite is expected. 
+Since the constraints limit the hypothesis space, the constrained prior mean is no longer constant within the \glspl{vop}, but takes on different \emph{natural curvatures} depending on the bounding functions in \eqref{eq:linear_inequality_constraints}. Here, \emph{natural curvatures} means the shape of the function that results from the prior distribution over the \gls{gp}'s second derivative. The effect of choosing different bounding functions on the prior distribution is displayed in Figure~\ref{fig:different_bounds}.
+\begin{figure}[h]
+    \centering
+    \input{thesis/figures/pgf_figures/constrained_priors.pgf}
+    \caption[Comparing the effect of different bounding functions $a(\mathbf{X}_v)$, $b(\mathbf{X}_v)$ on the constrained prior distribution.]{The effect of choosing different bounding functions $a(\mathbf{X}_v)$, $b(\mathbf{X}_v)$ on the constrained prior distribution. The green points denote the \glspl{vop} and the dotted line is the unconstrained prior mean. Depending on the bounds on the second derivative, the constrained prior mean has a different \emph{natural curvature}.}
+    \label{fig:different_bounds}
+\end{figure}
+All three of the displayed prior distributions enforce convexity at the \glspl{vop}, but vary in the \emph{natural curvature} of the prior mean prediction. In the time-varying setting, the mean of the constrained posterior distribution of \gls{ui} forgetting converges to this \emph{natural curvature} implied by the bounding functions, since the Wiener process modeling the temporal change is no longer unbiased but biased. For constrained \gls{b2p} forgetting the bias is also induced but counteracted by the propagation back to the constant prior mean. 
+
+If prior knowledge about an upper bound on the second derivative is available, it can be incorporated into \gls{ctvbo} thereby influencing the curvature of the prior distribution.
+As the second derivative is given as $\nicefrac{\partial^2 f_t (x)}{\partial x^2}=0.125$, the upper bounding function can be specified as
+\begin{equation}
+    b(\mathbf{X}_v) = 2 \cdot \frac{\partial^2 f_t(\mathbf{x})}{\partial x^2} = 0.25.
+\end{equation}
+Applying again the \gls{ctvbo} method with the adjusted upper bound function is displayed in Figure~\ref{fig:different_priors_constrained_bounds}.
+\begin{figure}[h]
+    \centering
+    \input{thesis/figures/pgf_figures/different_priors_constrained_BOUNDS.pgf}
+    \caption[Comparing the constrained posteriors for \gls{ui} and \gls{b2p} forgetting for different prior means and an upper bound on the second derivative.]{Comparison of the constrained posteriors at $t=3$ (top row) and $t=50$ (bottom row) using \gls{b2p} forgetting and \gls{ui} forgetting with a optimistic prior (left), well-defined prior (center), and pessimistic prior (right) with forgetting factors $\epsilon=\hat{\sigma}_w^2=0.1$ and bounding functions $a(\mathbf{X}_v) = 0$, $b(\mathbf{X}_v) = 0.25$. In contrast, the unconstrained posteriors are displayed in Figure~\ref{fig:different_priors}.}
+    \label{fig:different_priors_constrained_bounds}
+\end{figure}
+Including the upper bound further refines the induced bias, resulting in a good approximation to the objective function even after $50$ time steps. The characteristic behaviors of \gls{b2p} forgetting and \gls{ui} forgetting can also be observed, with the mean of \gls{b2p} forgetting tending towards the constant prior mean $\mu_0$ and the mean of \gls{ui} forgetting being independent of $\mu_0$. Moreover, the downside of \gls{ui} forgetting of a diverging variance is neglected by enforced inequality constraints. Away from the \glspl{vop}, the posterior distributions behave as in the unconstrained case. The mean of \gls{b2p} forgetting propagates back to constant prior mean and the variance of \gls{ui} forgetting diverges.
+
+The tendencies of the forgetting strategies and the discussed bias introduced by constraining the posterior also become apparent when considering the propagation of the distribution of one function value taken at $t=0$ of the objective function in \eqref{eq:example_objective} at the location $x_1=2.75$ over $50$ time steps. This is displayed in Figure~\ref{fig:distribution_propagation}.
+\begin{figure}[t]
+    \centering
+    \input{thesis/figures/pgf_figures/distribution_propagation.pgf}
+    \caption[Comparing the distribution propagation for \gls{ui} and \gls{b2p} forgetting constrained and unconstrained.]{Propagation of the distribution of a measurement taken at $t=0$ over $50$ time steps. Black denotes the prior distribution and the dotted gray line the prior mean. The colored dashed lines are the means at time step $t=50$. On the left the unconstrained case is visualized, in the middle the constrained case with bounds on the second derivative $\nicefrac{\partial^2 f_t(\mathbf{x})}{\partial x^2} \in [0, \infty]$, and on the right the constrained case with bounds $\nicefrac{\partial^2 f_t(\mathbf{x})}{\partial x^2} \in [0, 0.25]$.}
+    \label{fig:distribution_propagation}
+\end{figure}
+In the unconstrained case (left), the posterior distribution of \gls{b2p} forgetting at $x_1$ propagates back to the prior distribution, both the mean and the variance. In contrast, \gls{ui} forgetting maintains the structural information by keeping the expected value of $f_t(x_1)$ constant in the form of a constant posterior mean over time. The sub-figure in the middle shows the induced bias with the mean propagating towards the \emph{natural curvature} as a result of truncating the distribution on the second derivative of $f_t$ with the bounding functions as in Figure~\ref{fig:different_priors_constrained}. The mean of \gls{b2p} forgetting seems to remain constant as a result of forgetting and induced bias counteracting each other. However, this exact compensation is not always the case and depends on the objective function, the forgetting factor, as well as $\mu_0$. Lastly, the right sub-figure shows the distribution propagation for also including the upper bound on the second derivative as in Figure~\ref{fig:different_priors_constrained_bounds}, refining the induced bias and limiting the variance of the posterior.
+
+By presenting an example with the proposed method \gls{ctvbo}, an intuition about the behavior of the posterior distributions for the different forgetting strategies was built. A bias is induced by truncating the second derivative to be only positive, which affects the posterior mean over time as it converges to the shape of the \emph{natural curvature}. An additional upper bound significantly refined the bias, resulting in a better function approximation. Therefore, if more information about the second derivative is available, such as an estimate of its magnitude in each dimension, it can be incorporated as an upper bound, as shown in the example. If this is not the case, the presented method can still be applied, and it is recommended to set the bounds as in \eqref{eq:bounding_functions_convex}.
+
+Convexity constraints on the posterior distribution ensure that the posterior mean at the predicted optimum of $f_t$ is always the smallest within the feasible set.
+Therefore, they reduce the probability that the acquisition function selects queries further away from the predicted optimum, preventing undesired exploration. Consequently, it is expected, that \gls{ctvbo} performs better in terms of dynamic cumulative regret compared to standard \gls{tvbo} as stated in Hypothesis~\ref{hyp:ctvbo} if an objective function satisfies Assumption~\ref{ass:prior_knowledge_convex}.
+
+\begin{hyp}
+By incorporating prior knowledge, \gls{ctvbo} performs better than standard \gls{tvbo} in terms of dynamic cumulative regret, regardless of the type of forgetting.
+\label{hyp:ctvbo}
+\end{hyp}
+
+\subsubsection{On Hyperparameter Estimation}
+
+The hyperparameters of the spatial kernel are estimated using a marginal maximum likelihood approach of the unconstrained \gls{gp}. In \textcite{Bachoc_2019}, the influence of including the constraints on the \gls{gp} into the marginal maximum likelihood estimate was studied and an advantage for small data sets was shown. Since the constraints in the time-varying environment prevent the model from taking global queries as discussed in the previous \Cref{sec:model_convex_functions}, the correlation within the data set is high, making the effective size of the data set smaller. Therefore, including the constraints in the hyperparameter estimation could be beneficial. However, the added computational effort caused by considering the constraints must also be taken into account. Therefore, as in \textcite{Agrell_2019}, the presented approach does not consider the constraints during hyperparameter estimation.
+
+
+\section{Numerical and Practical Considerations}
+\label{sec:extensions}
+
+In the following, extensions to the proposed methods \gls{uitvbo} and \gls{ctvbo} for the practical application are discussed regarding scalability in terms of run time of each optimization iteration as well as an infinite time horizon.
+
+\subsubsection{Local Approximation}
+
+The bottleneck of the proposed method \gls{ctvbo} is its limitation regarding the number of \glspl{vop} due to sampling from the truncated multivariate normal distribution. The number of \glspl{vop} depends on the size of the feasible set relative to the spatial length scale in each dimension. If the feasible set is large relative to the spatial length scale, a large number of \glspl{vop} would be required to enforce convexity throughout the feasible set approximately. In order to still be able to use the proposed method in such scenarios, it is additionally assumed that the optimum between consecutive time steps only changes within a length scale as described in Assumption~\ref{ass:local_change}.
+
+\begin{assumption}
+The optimizer $\mathbf{x}^*_t$ does not change more than one length scale within one time step therefore $|\mathbf{x}^*_{t,i} - \mathbf{x}^*_{t-1,i}| \leq \boldsymbol\Lambda_{ii}, \, \forall i \in [1,\dots,D]$ holds for all for all $t \in \mathcal{T}$.
+\label{ass:local_change}
+\end{assumption}
+
+If Assumption~\ref{ass:local_change} is satisfied, the bounds of the feasible set $\mathcal{X}$ for the optimization of the acquisition function can be adjusted for every sequential time step $t+1$, depending on the predicted optimum of the previous time step $\hat{\mathbf{x}}^*_{t}$ as shown in Figure~\ref{fig:local_approximation}. The upper and lower bounds in each dimension $i\in[1,\dots,D]$ of the new feasible set $\tilde{\mathcal{X}}_{t+1} \subseteq \mathcal{X}$ are set as
+\begin{align}
+    \tilde{\mathcal{X}}_{t+1,i,lb} &= 
+        \begin{cases}
+            \hat{\mathbf{x}}^*_{t,i} - \boldsymbol\Lambda_{ii}\, ,& \text{if } \hat{\mathbf{x}}^*_{t,i} - \boldsymbol\Lambda_{ii} \geq \mathcal{X}_{i,lb}\\
+            \mathcal{X}_{i,lb}\,&\text{otherwise}
+        \end{cases} \\
+    \tilde{\mathcal{X}}_{t+1,i,ub} &= 
+        \begin{cases}
+            \hat{\mathbf{x}}^*_{t,i} + \boldsymbol\Lambda_{ii}\, ,& \text{if } \hat{\mathbf{x}}^*_{t,i} + \boldsymbol\Lambda_{ii} \leq \mathcal{X}_{i,ub}\\
+            \mathcal{X}_{i,ub}\, &\text{otherwise.}
+        \end{cases}
+\end{align}
+\begin{figure}[h]
+   \centering
+   \includegraphics{thesis/figures/pdf_figures/local_approximation.pdf}
+ \caption[Visualization of the local approximation.]{Visualization of the local approximation at every time step depending on the predicted optimum of the previous time step $\hat{\mathbf{x}}^*_{t}$ and the length scales resulting in the new feasible set $\tilde{\mathcal{X}}_{t+1}$ (blue). The green dots denote the \glspl{vop} placed in an equidistant grid around $\hat{\mathbf{x}}^*_{t}$.}
+ \label{fig:local_approximation}
+\end{figure}
+
+The optimization of the acquisition function (Algorithm~\ref{algo:constrained_tvbo}, line 12) then changes to
+\begin{equation}
+    \mathbf{x}_{t+1} = \argmin_{x\in \tilde{\mathcal{X}}_{t+1}} \alpha(\mathbf{x}, t+1|\mu_{t+1}, \sigma^2_{t+1}).
+\end{equation}
+
+The \glspl{vop} are not restricted to be within the feasible set of the acquisition function. Therefore, they are distributed in an equidistant grid around the predicted optimum $\hat{\mathbf{x}}^*_{t}$. The lower and upper bound in each spatial dimension for the grid of \glspl{vop} are
+\begin{equation}
+    \text{bounds for \glspl{vop} in each dimension} = [\hat{\mathbf{x}}^*_{t,i} - \delta \cdot \boldsymbol\Lambda_{ii}, \, \hat{\mathbf{x}}^*_{t,i} + \delta \cdot \boldsymbol\Lambda_{ii}]
+    \label{eq:delta}
+\end{equation}
+with $\delta \geq 1$ as hyperparameter to enforce convexity also beyond the bounds of $\tilde{\mathcal{X}}_{t+1}$ accounting for the spatial correlation. If an objective function does not satisfy Assumption~\ref{ass:local_change}, \gls{ctvbo} with local approximation might induce a delay in tracking the optimum as $\tilde{\mathcal{X}}_{t+1}$ may be too restrictive for the acquisition function. However, due to the convexity of the objective function it is likely, that \gls{ctvbo} will still outperform \gls{tvbo} in terms of dynamic cumulative regret.
+
+\subsubsection{Data Selection}
+\label{sec:data_selection}
+
+\gls{tvbo} is intended as an algorithm running online to make decisions at equidistant time steps, such as choosing the parameters of a controller. Here, the question of what happens in the case of a very large or infinite time horizon since \glspl{gp} scale cubical as $\mathcal{O}(N^3)$ in the number of training points ariises. Therefore, for such a scenario with $T \to \infty$, data selection strategies are needed, introducing sparsity into the \gls{tvbo} algorithm.
+
+\subsubsection{Data Selection for Back-2-Prior Forgetting}
+
+In \gls{b2p} forgetting, data points from the past propagate back to the prior distribution. Therefore, discarding data points after a fixed amount of time depending on the forgetting factor, arises naturally as a data selection method for \gls{b2p} forgetting. This results in a sliding window approach similar to \textcite{Meier_2016}. The size of the sliding window $W$ can be calculated for the temporal kernel $k_{T,tv}$ as
+\begin{align}
+    k_{T,tv} &= (1-\epsilon)^{\frac{W}{2}} \leq p \,\text{ (correlation threshold)} \\
+    \Leftrightarrow W &\geq 2 \frac{\ln{p}}{\ln{(1-\epsilon)}} \implies W = \left\lceil 2 \frac{\ln{p}}{\ln{(1-\epsilon)}} \right\rceil.
+    \label{eq:sliding_window}
+\end{align}
+The correlation threshold $p\in(0,1]$ is a design parameter which determines the time step after which the data points can be discarded.
+If the sliding window size $W=T$, the posterior at each time step will be exact.
+
+\subsubsection{Data Selection for Uncertainty-Injection Forgetting }
+
+A sliding window approach can not be applied to UI-\gls{tvbo} as the primary motivation of the \gls{ui} forgetting strategy is to maintain important structural information from the past. Discarding old training points after a fixed amount of time might lead to the loss of this structural information. Therefore, a data selection method for \gls{ui} forgetting based on binning is presented and displayed in Figure~\ref{fig:binning}. 
+\begin{figure}[h]
+   \centering
+   \includegraphics{thesis/figures/pdf_figures/binning_with_sliding_window.pdf}
+ \caption[Visualization of binning as a data selection strategy for \gls{ui} forgetting.]{Selection of data points for \gls{ui} forgetting. The black dots denote the data points observed over time. The feasible set is divided into equal sized bins and only the last data point (circled in green) is added to the active data set for \gls{tvbo}.}
+ \label{fig:binning}
+\end{figure}
+Each spatial dimension is divided into bins of equal width, and each data point is assigned to one bin depending on its spatial coordinates. In each bin, only the last observed point remains in the data set. The intuition behind this is that in \gls{ui} forgetting data points at the same spatial coordinate are overwritten over time as in Figure~\ref{fig:intuition_ui}, making the previous data point obsolete. With the introduction of bins, it is now assumed that new data points not only overwrite the information at the same coordinate but also overwrite information within the width of their bin $\Delta x$, since $k_S$ correlates the data points spatially. This allows the algorithm to consider also data points further in the past and maintain their structural information. For a bin width $\Delta x \to 0$, the posterior approximation becomes exact. For better empirical performance, this binning approach can be combined with a small sliding window to include the last $n$ observed data points resulting in a locally more exact approximation of the posterior. At the same time, the remaining bins maintain the global structural information.
+
+As binning suffers from the curse of dimensionality, other data selection strategies or approximation methods have to be applied at higher dimensions. An adaptive grid with varying bin sizes can be an option. Desirable would be a method similar to \textcite{Titsias_2009} which would find inducing points approximating the posterior at the current time step by minimizing the \gls{kl} divergence. However, such approximation methods introduce additional computation effort, and the number of inducing points needed also scales with the spatial dimensions $D$, compared to the sliding window approach for \gls{b2p} forgetting, which only depends on the forgetting factor and the correlation threshold. Therefore, in this thesis the binning strategy is used as a data selection strategy for \gls{ui} forgetting.
+
+
+%%%%% Emacs-related stuff
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "../../main"
+%%% End: 
