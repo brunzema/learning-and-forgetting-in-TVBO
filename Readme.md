@@ -8,8 +8,8 @@ Feel free to check out the corresponding [repo of the paper](https://github.com/
 ```
 @inproceedings{Brunzema2022cdc,
   author={Brunzema, Paul and von Rohr, Alexander and Trimpe, Sebastian},
-  booktitle={61th IEEE Conference on Decision and Control (CDC)}, 
   title={On Controller Tuning Using Time-Varying Bayesian Optimization}, 
+  booktitle={61th IEEE Conference on Decision and Control (CDC)}, 
   year={2022},
   url={https://arxiv.org/pdf/2207.11120.pdf},
 }
