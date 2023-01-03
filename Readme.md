@@ -6,12 +6,12 @@ The main results were presented and published at the 61st IEEE Conference in Dec
 Feel free to check out the corresponding [repo of the paper](https://github.com/brunzema/uitvbo) and [our paper](https://arxiv.org/pdf/2207.11120.pdf):
 
 ```
-@misc{brunzema2022cdc,
-  author = {Brunzema, Paul and von Rohr, Alexander and Trimpe, Sebastian},
-  title = {On Controller Tuning with Time-Varying Bayesian Optimization},
-  archivePrefix = {arXiv},
-  eprint = {2207.11120},
-  year = {2022},
+@inproceedings{Brunzema2022cdc,
+  author={Brunzema, Paul and von Rohr, Alexander and Trimpe, Sebastian},
+  booktitle={61th IEEE Conference on Decision and Control (CDC)}, 
+  title={On Controller Tuning Using Time-Varying Bayesian Optimization}, 
+  year={2022},
+  url={https://arxiv.org/pdf/2207.11120.pdf},
 }
 ```
 *The citation will be adjusted once the preceedings of the conference are public.*
